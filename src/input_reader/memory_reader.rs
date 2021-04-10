@@ -28,12 +28,14 @@ impl MemoryReader {
 }
 
 impl Reader for MemoryReader {
-    fn peek(&mut self, at: usize) -> Option<char> {
-        self.buf.get(self.pos + at).copied()
+    fn peek(&self) -> Option<char> {
+        self.buf.get(self.pos).copied()
     }
 
-    fn consume(&mut self, amt: usize) {
-        self.pos += amt;
+    fn consume(&mut self) -> Result<()> {
+        self.pos += 1;
+
+        Ok(())
     }
 }
 
@@ -41,8 +43,8 @@ impl Iterator for MemoryReader {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.peek(0)?;
-        self.consume(1);
+        let c = self.peek()?;
+        self.consume().ok()?;
 
         Some(c)
     }

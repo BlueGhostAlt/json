@@ -9,9 +9,9 @@ pub use buffered_reader::BufferedReader;
 pub use memory_reader::MemoryReader;
 
 pub(crate) trait Reader {
-    fn peek(&mut self, at: usize) -> Option<char>;
+    fn peek(&self) -> Option<char>;
 
-    fn consume(&mut self, amt: usize);
+    fn consume(&mut self) -> Result<()>;
 }
 
 pub type Result<T> = result::Result<T, Error>;

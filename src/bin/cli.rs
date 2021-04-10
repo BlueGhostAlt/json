@@ -3,7 +3,8 @@ use json::input_reader::{BufferedReader, MemoryReader};
 fn main() {
     let source = "aăâbcdefghiîjklmnopqrsștțuvwxyz";
 
-    let buf_reader = BufferedReader::new(source.as_bytes());
+    let buf_reader =
+        BufferedReader::new(source.as_bytes()).expect("Failed to create a buffered reader");
     let mem_reader =
         MemoryReader::new(source.as_bytes()).expect("Failed to create a memory reader");
 

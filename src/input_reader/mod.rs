@@ -43,3 +43,33 @@ impl From<str::Utf8Error> for Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use io::Empty;
+
+    const EMPTY_SOURCE: Empty = io::empty();
+    const SOURCE: &[u8] = "json".as_bytes();
+
+    #[test]
+    fn test_empty_readers_are_eq() -> Result<()> {
+        let buf_reader = BufferedReader::new(EMPTY_SOURCE)?;
+        let mem_reader = MemoryReader::new(EMPTY_SOURCE)?;
+
+        assert!(buf_reader.eq(mem_reader));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_readers_are_eq() -> Result<()> {
+        let buf_reader = BufferedReader::new(SOURCE)?;
+        let mem_reader = MemoryReader::new(SOURCE)?;
+
+        assert!(buf_reader.eq(mem_reader));
+
+        Ok(())
+    }
+}

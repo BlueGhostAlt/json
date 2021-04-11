@@ -14,10 +14,8 @@ impl MemoryReader {
         R: io::Read,
     {
         let mut buffer = Vec::new();
-        source
-            .read_to_end(&mut buffer)
-            .map_err(|e| Error::from(e))?;
-        let buffer = str::from_utf8(&buffer).map_err(|e| Error::from(e))?;
+        source.read_to_end(&mut buffer).map_err(Error::from)?;
+        let buffer = str::from_utf8(&buffer).map_err(Error::from)?;
         let buffer = buffer.chars().collect::<Vec<_>>();
 
         Ok(Self {
@@ -47,5 +45,72 @@ impl Iterator for MemoryReader {
         self.consume().ok()?;
 
         Some(c)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SOURCE: &[u8] = "json".as_bytes();
+
+    #[test]
+    fn test_peek_empty() -> Result<()> {
+        let mem_reader = MemoryReader::new(io::empty())?;
+
+        assert_eq!(mem_reader.peek(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_peek() -> Result<()> {
+        let mem_reader = MemoryReader::new(SOURCE)?;
+
+        assert_eq!(mem_reader.peek(), Some('j'));
+        assert_eq!(mem_reader.peek(), Some('j'));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_consume_empty() -> Result<()> {
+        let mut mem_reader = MemoryReader::new(io::empty())?;
+
+        assert_eq!(mem_reader.peek(), None);
+        mem_reader.consume()?;
+        assert_eq!(mem_reader.peek(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_consume() -> Result<()> {
+        let mut mem_reader = MemoryReader::new(SOURCE)?;
+
+        assert_eq!(mem_reader.peek(), Some('j'));
+        mem_reader.consume()?;
+        assert_eq!(mem_reader.peek(), Some('s'));
+        mem_reader.consume()?;
+        assert_eq!(mem_reader.peek(), Some('o'));
+        mem_reader.consume()?;
+        assert_eq!(mem_reader.peek(), Some('n'));
+        mem_reader.consume()?;
+        assert_eq!(mem_reader.peek(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_next() -> Result<()> {
+        let mut mem_reader = MemoryReader::new(SOURCE)?;
+
+        assert_eq!(mem_reader.next(), Some('j'));
+        assert_eq!(mem_reader.next(), Some('s'));
+        assert_eq!(mem_reader.next(), Some('o'));
+        assert_eq!(mem_reader.next(), Some('n'));
+        assert_eq!(mem_reader.next(), None);
+
+        Ok(())
     }
 }

@@ -8,7 +8,7 @@ mod memory_reader;
 pub use buffered_reader::BufferedReader;
 pub use memory_reader::MemoryReader;
 
-pub(crate) trait Reader {
+pub trait Reader {
     fn peek(&self) -> Option<char>;
 
     fn consume(&mut self) -> Result<()>;

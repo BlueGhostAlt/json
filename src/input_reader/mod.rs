@@ -1,6 +1,6 @@
-use std::io;
 use std::result;
 use std::str;
+use std::{error, fmt, io};
 
 mod buffered_reader;
 mod memory_reader;
@@ -41,6 +41,24 @@ impl From<str::Utf8Error> for Error {
         Error {
             repr: Repr::Utf8(error),
         }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.repr {
+            Repr::Io(io_err) => write!(f, "{}", io_err),
+            Repr::Utf8(utf8_err) => write!(f, "{}", utf8_err),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        Some(match &self.repr {
+            Repr::Io(io_err) => io_err,
+            Repr::Utf8(utf8_err) => utf8_err,
+        })
     }
 }
 

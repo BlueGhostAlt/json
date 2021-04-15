@@ -3,7 +3,7 @@ use std::io;
 use std::mem;
 use std::str;
 
-use super::{Error, Reader, Result};
+use super::{Error, ReadInput, Result};
 
 const DEFAULT_BUF_READER_CAPACITY: usize = 2;
 
@@ -57,7 +57,7 @@ impl<R: io::Read> BufferedReader<R> {
     }
 }
 
-impl<R: io::Read> Reader for BufferedReader<R> {
+impl<R: io::Read> ReadInput for BufferedReader<R> {
     fn peek(&self) -> Option<char> {
         self.last_ch
     }

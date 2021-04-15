@@ -1,7 +1,7 @@
 use std::io;
 use std::str;
 
-use super::{Error, Reader, Result};
+use super::{Error, ReadInput, Result};
 
 pub struct MemoryReader {
     buf: Box<[char]>,
@@ -25,7 +25,7 @@ impl MemoryReader {
     }
 }
 
-impl Reader for MemoryReader {
+impl ReadInput for MemoryReader {
     fn peek(&self) -> Option<char> {
         self.buf.get(self.pos).copied()
     }

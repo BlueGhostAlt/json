@@ -1,5 +1,6 @@
 use std::cmp;
 use std::io;
+use std::iter;
 use std::mem;
 use std::str;
 
@@ -126,6 +127,8 @@ impl<R: io::Read> Iterator for BufferedReader<R> {
         Some(c)
     }
 }
+
+impl<R: io::Read> iter::FusedIterator for BufferedReader<R> {}
 
 #[cfg(test)]
 mod tests {

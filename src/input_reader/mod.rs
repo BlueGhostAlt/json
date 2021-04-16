@@ -175,6 +175,29 @@ pub trait ReadInput {
     /// }
     /// ```
     fn consume(&mut self) -> Result<()>;
+
+    /// Checks whether or not the input has ran out of characters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use json::input_reader::{self, MemoryReader, ReadInput};
+    ///
+    /// fn main() -> input_reader::Result<()> {
+    ///     let mut reader = MemoryReader::new("json".as_bytes())?;
+    ///
+    ///     reader.consume()?;
+    ///     reader.consume()?;
+    ///     reader.consume()?;
+    ///     reader.consume()?;
+    ///     assert!(reader.has_reached_eof());
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    fn has_reached_eof(&self) -> bool {
+        matches!(self.peek(), None)
+    }
 }
 
 /// A specialized [`Result`] type for input reading operations.
@@ -293,6 +316,22 @@ mod tests {
         let mem_reader = MemoryReader::new(SOURCE)?;
 
         assert!(buf_reader.eq(mem_reader));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_readers_have_reached_eof() -> Result<()> {
+        let mut buf_reader = BufferedReader::new(SOURCE)?;
+        let mut mem_reader = MemoryReader::new(SOURCE)?;
+
+        (buf_reader.consume()?, mem_reader.consume()?);
+        (buf_reader.consume()?, mem_reader.consume()?);
+        (buf_reader.consume()?, mem_reader.consume()?);
+        (buf_reader.consume()?, mem_reader.consume()?);
+
+        assert!(buf_reader.has_reached_eof());
+        assert!(mem_reader.has_reached_eof());
 
         Ok(())
     }

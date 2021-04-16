@@ -99,6 +99,8 @@ impl Iterator for MemoryReader {
 
 unsafe impl iter::TrustedLen for MemoryReader {}
 
+impl ExactSizeIterator for MemoryReader {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

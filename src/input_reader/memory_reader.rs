@@ -101,6 +101,8 @@ unsafe impl iter::TrustedLen for MemoryReader {}
 
 impl ExactSizeIterator for MemoryReader {}
 
+impl iter::FusedIterator for MemoryReader {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

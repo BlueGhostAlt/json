@@ -1,3 +1,4 @@
+use std::cmp;
 use std::io;
 use std::str;
 
@@ -74,7 +75,7 @@ impl ReadInput for MemoryReader {
     }
 
     fn consume(&mut self) -> Result<()> {
-        self.pos += 1;
+        self.pos = cmp::min(self.pos + 1, self.buf.len());
 
         Ok(())
     }

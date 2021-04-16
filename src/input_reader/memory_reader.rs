@@ -3,12 +3,55 @@ use std::str;
 
 use super::{Error, ReadInput, Result};
 
+/// The `MemoryReader` struct provides in-memory whole input reading.
+///
+/// This input reader is meant to be used in situations such as performance
+/// critical software, where memory consumption is not necessarily a concern
+/// but where performance matters, and where any extra syscall or extra read
+/// of the input is undesirable.
+///
+/// A `MemoryReader` reads the whole input in memory in a fixed-size
+/// heap-allocated buffer. That means only one read call, but a potential
+/// exhaustion of available memory.
+///
+/// # Examples
+///
+/// ```
+/// use json::input_reader::{self, MemoryReader, ReadInput};
+///
+/// fn main() -> input_reader::Result<()> {
+///     let mut reader = MemoryReader::new("json".as_bytes())?;
+///
+///     assert_eq!(reader.peek(), Some('j'));
+///     reader.consume()?;
+///     assert_eq!(reader.peek(), Some('s'));
+///     reader.consume()?;
+///     reader.consume()?;
+///     reader.consume()?;
+///     assert_eq!(reader.peek(), None);
+///
+///     Ok(())
+/// }
+/// ```
 pub struct MemoryReader {
     buf: Box<[char]>,
     pos: usize,
 }
 
 impl MemoryReader {
+    /// Creates a new `MemoryReader` by reading the whole input.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use json::input_reader::{self, MemoryReader, ReadInput};
+    ///
+    /// fn main() -> input_reader::Result<()> {
+    ///     let mut reader = MemoryReader::new("json".as_bytes())?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn new<R>(mut source: R) -> Result<Self>
     where
         R: io::Read,

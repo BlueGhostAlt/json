@@ -7,6 +7,35 @@ use super::{Error, ReadInput, Result};
 
 const DEFAULT_BUF_READER_CAPACITY: usize = 2;
 
+/// The `BufferedReader<R>` struct provides in-memory buffered input reading.
+///
+/// This input reader is meant to be used in situations such as with big data,
+/// where memory can be exhausted quickly if the whole input where to be read
+/// at once.
+///
+/// A `BufferedReader<R>` buffers a part of the input in memory in a fixed-size
+/// heap-allocated buffer. Though, that means multiple read calls, which might
+/// be unaffordable in performance critical operations.
+///
+/// # Examples
+///
+/// ```
+/// use json::input_reader::{self, BufferedReader, ReadInput};
+///
+/// fn main() -> input_reader::Result<()> {
+///     let mut reader = BufferedReader::new("json".as_bytes())?;
+///
+///     assert_eq!(reader.peek(), Some('j'));
+///     reader.consume()?;
+///     assert_eq!(reader.peek(), Some('s'));
+///     reader.consume()?;
+///     reader.consume()?;
+///     reader.consume()?;
+///     assert_eq!(reader.peek(), None);
+///
+///     Ok(())
+/// }
+/// ```
 pub struct BufferedReader<R: io::Read> {
     inner: R,
     buf: Box<[u8]>,
@@ -17,6 +46,21 @@ pub struct BufferedReader<R: io::Read> {
 }
 
 impl<R: io::Read> BufferedReader<R> {
+    /// Creates a new `BuffferedReader<R>` with a default buffer capacity. The
+    /// default is currently 8 bytes, 2 characters, but may change in the
+    /// future.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use json::input_reader::{self, BufferedReader, ReadInput};
+    ///
+    /// fn main() -> input_reader::Result<()> {
+    ///     let mut reader = BufferedReader::new("json".as_bytes())?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn new(source: R) -> Result<Self> {
         BufferedReader::with_capacity(DEFAULT_BUF_READER_CAPACITY, source)
     }

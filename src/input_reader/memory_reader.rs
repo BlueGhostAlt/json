@@ -1,5 +1,6 @@
 use std::cmp;
 use std::io;
+use std::iter;
 use std::str;
 
 use super::{Error, ReadInput, Result};
@@ -90,7 +91,13 @@ impl Iterator for MemoryReader {
 
         Some(c)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.buf.len() - self.pos, Some(self.buf.len() - self.pos))
+    }
 }
+
+unsafe impl iter::TrustedLen for MemoryReader {}
 
 #[cfg(test)]
 mod tests {

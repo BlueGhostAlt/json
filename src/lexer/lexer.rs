@@ -20,11 +20,19 @@ pub struct IntoIter<R: ReadInput> {
 
 #[derive(Debug)]
 enum TokenKind {
+    Whitespace,
+
+    Comma,
     OpenBrace,
     CloseBrace,
+    OpenBracket,
+    CloseBracket,
+    Colon,
 
     Unknown,
 }
+
+use TokenKind::*;
 
 impl<R: ReadInput> Lexer<R> {
     pub fn new(input_reader: R) -> Result<Self> {
@@ -46,9 +54,14 @@ impl<R: ReadInput> Lexer<R> {
             self.reader.consume().map_err(Error::from)?;
 
             self.current_token = Some(match c {
-                '{' => Token::from(TokenKind::OpenBrace),
-                '}' => Token::from(TokenKind::CloseBrace),
-                _ => Token::from(TokenKind::Unknown),
+                ' ' | '\n' | '\r' | '\t' => Token::from(Whitespace),
+                ',' => Token::from(Comma),
+                '{' => Token::from(OpenBrace),
+                '}' => Token::from(CloseBrace),
+                '[' => Token::from(OpenBracket),
+                ']' => Token::from(CloseBracket),
+                ':' => Token::from(Colon),
+                _ => Token::from(Unknown),
             })
         } else {
             self.current_token = None

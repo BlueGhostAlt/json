@@ -106,6 +106,7 @@ pub use memory_reader::MemoryReader;
 /// use json::input_reader::{self, MemoryReader, ReadInput};
 ///
 /// fn main() -> input_reader::Result<()> {
+// TODO: replace binary string with regular string, and use .as_bytes() instead
 ///     let buf: &[u8] = b"json";
 ///     let mut reader = MemoryReader::new(buf)?;
 ///
@@ -164,6 +165,7 @@ pub trait ReadInput {
     /// use json::input_reader::{self, MemoryReader, ReadInput};
     ///
     /// fn main() -> input_reader::Result<()> {
+    // TODO: same as on line 109
     ///     let buf: &[u8] = b"json";
     ///     let mut reader = MemoryReader::new(buf)?;
     ///

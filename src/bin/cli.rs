@@ -1,12 +1,22 @@
-use json::input_reader::{BufferedReader, MemoryReader};
+use std::error;
+
+use json::{input_reader::MemoryReader, lexer::Lexer};
+
+fn try_main() -> Result<(), Box<dyn error::Error>> {
+    let source = "{}?{{?}}";
+
+    let reader = MemoryReader::new(source.as_bytes())?;
+    let lexer = Lexer::new(reader)?;
+
+    for t in lexer {
+        println!("{:?}", t);
+    }
+
+    Ok(())
+}
 
 fn main() {
-    let source = "aăâbcdefghiîjklmnopqrsștțuvwxyz";
-
-    let buf_reader =
-        BufferedReader::new(source.as_bytes()).expect("Failed to create a buffered reader");
-    let mem_reader =
-        MemoryReader::new(source.as_bytes()).expect("Failed to create a memory reader");
-
-    assert!(buf_reader.eq(mem_reader));
+    if let Err(error) = try_main() {
+        panic!("{:?}", error);
+    }
 }

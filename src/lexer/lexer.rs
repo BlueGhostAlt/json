@@ -1,3 +1,5 @@
+use std::mem;
+
 use super::{Error, Result};
 use crate::input_reader::ReadInput;
 
@@ -10,6 +12,10 @@ pub struct Lexer<R: ReadInput> {
 pub struct Token {
     #[allow(dead_code)]
     kind: TokenKind,
+}
+
+pub struct IntoIter<R: ReadInput> {
+    lexer: Lexer<R>,
 }
 
 #[derive(Debug)]
@@ -31,11 +37,8 @@ impl<R: ReadInput> Lexer<R> {
         Ok(lexer)
     }
 
-    pub fn peek(&self) -> Option<Token> {
-        match &self.current_token {
-            Some(t) => unsafe { Some(std::ptr::read(t as *const _)) },
-            None => None,
-        }
+    pub fn peek(&self) -> Option<&Token> {
+        self.current_token.as_ref()
     }
 
     pub fn consume(&mut self) -> Result<()> {
@@ -53,6 +56,10 @@ impl<R: ReadInput> Lexer<R> {
 
         Ok(())
     }
+
+    fn into_iter(self) -> IntoIter<R> {
+        IntoIter { lexer: self }
+    }
 }
 
 impl From<TokenKind> for Token {
@@ -62,12 +69,20 @@ impl From<TokenKind> for Token {
     }
 }
 
-impl<R: ReadInput> Iterator for Lexer<R> {
+impl<R: ReadInput> IntoIterator for Lexer<R> {
+    type Item = Token;
+    type IntoIter = IntoIter<R>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_iter()
+    }
+}
+
+impl<R: ReadInput> Iterator for IntoIter<R> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.peek()?;
-        self.consume().ok()?;
+        let c = mem::take(&mut self.lexer.current_token)?;
+        self.lexer.consume().ok();
 
         Some(c)
     }

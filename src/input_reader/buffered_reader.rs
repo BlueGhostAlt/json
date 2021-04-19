@@ -106,6 +106,7 @@ impl<R: io::Read> ReadInput for BufferedReader<R> {
     }
 
     fn consume(&mut self, k: usize) -> Result<()> {
+        // TODO: Write tests for erroring on buffer overconsumption
         if k > self.chars.len() {
             return Err(Error::overconsume_buffer(k));
         }

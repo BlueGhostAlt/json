@@ -4,7 +4,7 @@ use super::{Error, Result};
 use crate::input_reader;
 
 pub struct Lexer<R> {
-    reader: R,
+    input_reader: R,
     current_token: Option<Token>,
 }
 
@@ -56,7 +56,7 @@ impl<R> Lexer<R> {
 impl<R: input_reader::ReadInput> Lexer<R> {
     pub fn new(input_reader: R) -> Result<Self> {
         let mut lexer = Lexer {
-            reader: input_reader,
+            input_reader,
             current_token: None,
         };
         lexer.consume()?;
@@ -65,10 +65,10 @@ impl<R: input_reader::ReadInput> Lexer<R> {
     }
 
     pub fn consume(&mut self) -> Result<()> {
-        if let Some(c) = self.reader.peek(0) {
-            self.reader.consume(1).map_err(Error::from)?;
+        if let Some(c) = self.input_reader.peek(0) {
+            self.input_reader.consume(1).map_err(Error::from)?;
 
-            self.current_token = Some(match c {
+            let token = match c {
                 ' ' | '\n' | '\r' | '\t' => Token::from(Whitespace),
                 ',' => Token::from(Comma),
                 '{' => Token::from(OpenBrace),
@@ -77,60 +77,34 @@ impl<R: input_reader::ReadInput> Lexer<R> {
                 ']' => Token::from(CloseBracket),
                 ':' => Token::from(Colon),
                 'n' => {
-                    let c1 = self.next_char()?;
-                    let c2 = self.next_char()?;
-                    let c3 = self.next_char()?;
-
-                    match (c1, c2, c3) {
-                        (Some(c1), Some(c2), Some(c3)) => {
-                            if (c1, c2, c3) == ('u', 'l', 'l') {
-                                Token::from(Literal { kind: Null })
-                            } else {
-                                Token::from(Unknown)
-                            }
-                        }
-                        _ => Token::from(Unknown),
+                    if self.match_keyword("null")? {
+                        Token::from(Literal { kind: Null })
+                    } else {
+                        Token::from(Unknown)
                     }
                 }
                 't' => {
-                    let c1 = self.next_char()?;
-                    let c2 = self.next_char()?;
-                    let c3 = self.next_char()?;
-
-                    match (c1, c2, c3) {
-                        (Some(c1), Some(c2), Some(c3)) => {
-                            if (c1, c2, c3) == ('r', 'u', 'e') {
-                                Token::from(Literal {
-                                    kind: Boolean(true),
-                                })
-                            } else {
-                                Token::from(Unknown)
-                            }
-                        }
-                        _ => Token::from(Unknown),
+                    if self.match_keyword("true")? {
+                        Token::from(Literal {
+                            kind: Boolean(true),
+                        })
+                    } else {
+                        Token::from(Unknown)
                     }
                 }
                 'f' => {
-                    let c1 = self.next_char()?;
-                    let c2 = self.next_char()?;
-                    let c3 = self.next_char()?;
-                    let c4 = self.next_char()?;
-
-                    match (c1, c2, c3, c4) {
-                        (Some(c1), Some(c2), Some(c3), Some(c4)) => {
-                            if (c1, c2, c3, c4) == ('a', 'l', 's', 'e') {
-                                Token::from(Literal {
-                                    kind: Boolean(false),
-                                })
-                            } else {
-                                Token::from(Unknown)
-                            }
-                        }
-                        _ => Token::from(Unknown),
+                    if self.match_keyword("false")? {
+                        Token::from(Literal {
+                            kind: Boolean(false),
+                        })
+                    } else {
+                        Token::from(Unknown)
                     }
                 }
                 _ => Token::from(Unknown),
-            })
+            };
+
+            self.current_token = Some(token)
         } else {
             self.current_token = None
         }
@@ -138,11 +112,19 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         Ok(())
     }
 
-    fn next_char(&mut self) -> Result<Option<char>> {
-        let c = self.reader.peek(0);
-        self.reader.consume(1).map_err(Error::from)?;
+    fn match_keyword(&mut self, kw: &str) -> Result<bool> {
+        let actual_chars = (0..kw.len() - 1).filter_map(|k| self.input_reader.peek(k));
+        let expect_chars = kw[1..].chars();
 
-        Ok(c)
+        if actual_chars.ne(expect_chars) {
+            return Ok(false);
+        }
+
+        self.input_reader
+            .consume(kw.len() - 1)
+            .map_err(Error::from)?;
+
+        Ok(true)
     }
 }
 

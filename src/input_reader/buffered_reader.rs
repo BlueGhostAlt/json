@@ -26,13 +26,13 @@ const DEFAULT_BUF_READER_CAPACITY: usize = 16;
 /// fn main() -> input_reader::Result<()> {
 ///     let mut reader = BufferedReader::new("json".as_bytes())?;
 ///
-///     assert_eq!(reader.peek(), Some('j'));
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), Some('s'));
-///     reader.consume()?;
-///     reader.consume()?;
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), None);
+///     assert_eq!(reader.peek(0), Some('j'));
+///     reader.consume(1)?;
+///     assert_eq!(reader.peek(0), Some('s'));
+///     reader.consume(0)?;
+///     reader.consume(0)?;
+///     reader.consume(3)?;
+///     assert_eq!(reader.peek(0), None);
 ///
 ///     Ok(())
 /// }
@@ -43,13 +43,13 @@ pub struct BufferedReader<R: io::Read> {
     pos: usize,
     cap: usize,
 
-    last_ch: Option<char>,
+    chars: [Option<char>; DEFAULT_BUF_READER_CAPACITY],
 }
 
 impl<R: io::Read> BufferedReader<R> {
     /// Creates a new `BuffferedReader<R>` with a default buffer capacity. The
     /// default is currently 68 bytes, allowing for peeking 16 characters, but
-    /// may change in thefuture.
+    /// may change in the future.
     ///
     /// # Examples
     ///
@@ -79,7 +79,7 @@ impl<R: io::Read> BufferedReader<R> {
             pos: 0,
             cap: 0,
 
-            last_ch: None,
+            chars: [None; DEFAULT_BUF_READER_CAPACITY],
         };
         buf_reader.fill_buf()?;
 
@@ -87,6 +87,8 @@ impl<R: io::Read> BufferedReader<R> {
     }
 
     fn fill_buf(&mut self) -> Result<()> {
+        // Branch using `>=` instead of the more correct `==` to tell the
+        // compiler that the pos..cap slice is always valid.
         if self.pos >= self.cap {
             self.cap = self.inner.read(&mut self.buf).map_err(Error::from)?;
             self.pos = 0;
@@ -96,22 +98,26 @@ impl<R: io::Read> BufferedReader<R> {
         let str = str::from_utf8(buf).map_err(Error::from)?;
 
         let mut chars = str.chars();
-        self.last_ch = chars.next();
+        self.chars.iter_mut().for_each(|c| *c = chars.next());
 
         Ok(())
     }
 }
 
 impl<R: io::Read> ReadInput for BufferedReader<R> {
-    fn peek(&self) -> Option<char> {
-        self.last_ch
+    fn peek(&self, k: usize) -> Option<char> {
+        self.chars.get(k).copied().flatten()
     }
 
-    fn consume(&mut self) -> Result<()> {
-        if let Some(last_ch) = self.last_ch {
-            self.pos = cmp::min(self.pos + last_ch.len_utf8(), self.cap);
-            self.fill_buf()?;
-        }
+    fn consume(&mut self, k: usize) -> Result<()> {
+        let len = self
+            .chars
+            .iter()
+            .take(k)
+            .filter_map(|c| c.map(|c| c.len_utf8()))
+            .sum::<usize>();
+        self.pos = cmp::min(self.pos + len, self.cap);
+        self.fill_buf()?;
 
         Ok(())
     }
@@ -121,8 +127,8 @@ impl<R: io::Read> Iterator for BufferedReader<R> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.peek()?;
-        self.consume().ok()?;
+        let c = self.peek(0)?;
+        self.consume(1).ok()?;
 
         Some(c)
     }
@@ -140,7 +146,7 @@ mod tests {
     fn test_peek_empty() -> Result<()> {
         let buf_reader = BufferedReader::new(io::empty())?;
 
-        assert_eq!(buf_reader.peek(), None);
+        assert_eq!(buf_reader.peek(0), None);
 
         Ok(())
     }
@@ -149,8 +155,12 @@ mod tests {
     fn test_peek() -> Result<()> {
         let buf_reader = BufferedReader::new(SOURCE)?;
 
-        assert_eq!(buf_reader.peek(), Some('j'));
-        assert_eq!(buf_reader.peek(), Some('j'));
+        assert_eq!(buf_reader.peek(0), Some('j'));
+        assert_eq!(buf_reader.peek(0), Some('j'));
+        assert_eq!(buf_reader.peek(1), Some('s'));
+        assert_eq!(buf_reader.peek(2), Some('o'));
+        assert_eq!(buf_reader.peek(3), Some('n'));
+        assert_eq!(buf_reader.peek(4), None);
 
         Ok(())
     }
@@ -159,9 +169,9 @@ mod tests {
     fn test_consume_empty() -> Result<()> {
         let mut buf_reader = BufferedReader::new(io::empty())?;
 
-        assert_eq!(buf_reader.peek(), None);
-        buf_reader.consume()?;
-        assert_eq!(buf_reader.peek(), None);
+        assert_eq!(buf_reader.peek(0), None);
+        buf_reader.consume(1)?;
+        assert_eq!(buf_reader.peek(0), None);
 
         Ok(())
     }
@@ -170,15 +180,19 @@ mod tests {
     fn test_consume() -> Result<()> {
         let mut buf_reader = BufferedReader::new(SOURCE)?;
 
-        assert_eq!(buf_reader.peek(), Some('j'));
-        buf_reader.consume()?;
-        assert_eq!(buf_reader.peek(), Some('s'));
-        buf_reader.consume()?;
-        assert_eq!(buf_reader.peek(), Some('o'));
-        buf_reader.consume()?;
-        assert_eq!(buf_reader.peek(), Some('n'));
-        buf_reader.consume()?;
-        assert_eq!(buf_reader.peek(), None);
+        assert_eq!(buf_reader.peek(0), Some('j'));
+        assert_eq!(buf_reader.peek(1), Some('s'));
+        buf_reader.consume(1)?;
+        assert_eq!(buf_reader.peek(0), Some('s'));
+        buf_reader.consume(0)?;
+        assert_eq!(buf_reader.peek(1), Some('o'));
+        buf_reader.consume(1)?;
+        assert_eq!(buf_reader.peek(1), Some('n'));
+        buf_reader.consume(1)?;
+        assert_eq!(buf_reader.peek(0), Some('n'));
+        assert_eq!(buf_reader.peek(1), None);
+        buf_reader.consume(1)?;
+        assert_eq!(buf_reader.peek(0), None);
 
         Ok(())
     }

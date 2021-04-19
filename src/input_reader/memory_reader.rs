@@ -24,13 +24,13 @@ use super::{Error, ReadInput, Result};
 /// fn main() -> input_reader::Result<()> {
 ///     let mut reader = MemoryReader::new("json".as_bytes())?;
 ///
-///     assert_eq!(reader.peek(), Some('j'));
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), Some('s'));
-///     reader.consume()?;
-///     reader.consume()?;
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), None);
+///     assert_eq!(reader.peek(0), Some('j'));
+///     reader.consume(1)?;
+///     assert_eq!(reader.peek(0), Some('s'));
+///     reader.consume(0)?;
+///     reader.consume(0)?;
+///     reader.consume(3)?;
+///     assert_eq!(reader.peek(0), None);
 ///
 ///     Ok(())
 /// }
@@ -71,12 +71,12 @@ impl MemoryReader {
 }
 
 impl ReadInput for MemoryReader {
-    fn peek(&self) -> Option<char> {
-        self.buf.get(self.pos).copied()
+    fn peek(&self, k: usize) -> Option<char> {
+        self.buf.get(self.pos + k).copied()
     }
 
-    fn consume(&mut self) -> Result<()> {
-        self.pos = cmp::min(self.pos + 1, self.buf.len());
+    fn consume(&mut self, k: usize) -> Result<()> {
+        self.pos = cmp::min(self.pos + k, self.buf.len());
 
         Ok(())
     }
@@ -86,8 +86,8 @@ impl Iterator for MemoryReader {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.peek()?;
-        self.consume().ok()?;
+        let c = self.peek(0)?;
+        self.consume(1).ok()?;
 
         Some(c)
     }
@@ -113,7 +113,7 @@ mod tests {
     fn test_peek_empty() -> Result<()> {
         let mem_reader = MemoryReader::new(io::empty())?;
 
-        assert_eq!(mem_reader.peek(), None);
+        assert_eq!(mem_reader.peek(0), None);
 
         Ok(())
     }
@@ -122,8 +122,12 @@ mod tests {
     fn test_peek() -> Result<()> {
         let mem_reader = MemoryReader::new(SOURCE)?;
 
-        assert_eq!(mem_reader.peek(), Some('j'));
-        assert_eq!(mem_reader.peek(), Some('j'));
+        assert_eq!(mem_reader.peek(0), Some('j'));
+        assert_eq!(mem_reader.peek(0), Some('j'));
+        assert_eq!(mem_reader.peek(1), Some('s'));
+        assert_eq!(mem_reader.peek(2), Some('o'));
+        assert_eq!(mem_reader.peek(3), Some('n'));
+        assert_eq!(mem_reader.peek(4), None);
 
         Ok(())
     }
@@ -132,9 +136,9 @@ mod tests {
     fn test_consume_empty() -> Result<()> {
         let mut mem_reader = MemoryReader::new(io::empty())?;
 
-        assert_eq!(mem_reader.peek(), None);
-        mem_reader.consume()?;
-        assert_eq!(mem_reader.peek(), None);
+        assert_eq!(mem_reader.peek(0), None);
+        mem_reader.consume(1)?;
+        assert_eq!(mem_reader.peek(0), None);
 
         Ok(())
     }
@@ -143,15 +147,19 @@ mod tests {
     fn test_consume() -> Result<()> {
         let mut mem_reader = MemoryReader::new(SOURCE)?;
 
-        assert_eq!(mem_reader.peek(), Some('j'));
-        mem_reader.consume()?;
-        assert_eq!(mem_reader.peek(), Some('s'));
-        mem_reader.consume()?;
-        assert_eq!(mem_reader.peek(), Some('o'));
-        mem_reader.consume()?;
-        assert_eq!(mem_reader.peek(), Some('n'));
-        mem_reader.consume()?;
-        assert_eq!(mem_reader.peek(), None);
+        assert_eq!(mem_reader.peek(0), Some('j'));
+        assert_eq!(mem_reader.peek(1), Some('s'));
+        mem_reader.consume(1)?;
+        assert_eq!(mem_reader.peek(0), Some('s'));
+        mem_reader.consume(0)?;
+        assert_eq!(mem_reader.peek(1), Some('o'));
+        mem_reader.consume(1)?;
+        assert_eq!(mem_reader.peek(1), Some('n'));
+        mem_reader.consume(1)?;
+        assert_eq!(mem_reader.peek(0), Some('n'));
+        assert_eq!(mem_reader.peek(1), None);
+        mem_reader.consume(1)?;
+        assert_eq!(mem_reader.peek(0), None);
 
         Ok(())
     }

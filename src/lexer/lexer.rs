@@ -65,8 +65,8 @@ impl<R: input_reader::ReadInput> Lexer<R> {
     }
 
     pub fn consume(&mut self) -> Result<()> {
-        if let Some(c) = self.reader.peek() {
-            self.reader.consume().map_err(Error::from)?;
+        if let Some(c) = self.reader.peek(0) {
+            self.reader.consume(1).map_err(Error::from)?;
 
             self.current_token = Some(match c {
                 ' ' | '\n' | '\r' | '\t' => Token::from(Whitespace),
@@ -139,8 +139,8 @@ impl<R: input_reader::ReadInput> Lexer<R> {
     }
 
     fn next_char(&mut self) -> Result<Option<char>> {
-        let c = self.reader.peek();
-        self.reader.consume().map_err(Error::from)?;
+        let c = self.reader.peek(0);
+        self.reader.consume(1).map_err(Error::from)?;
 
         Ok(c)
     }

@@ -20,9 +20,10 @@
 //! # ReadInput
 //!
 //! The [`ReadInput`] trait describes a unifying interface for input readers,
-//! with two fundamental methods: [`peek`] and [`consume`].
-//! [`peek`] returns the current character in the input.
-//! [`consume`] advances the reader onto the next character.
+//! with two fundamental methods: [`peek(k)`] and [`consume(k)`].
+//! [`peek(k)`] returns the k-th character in the input from the current
+//! position.
+//! [`consume(k)`] advances the input reader's position by k characters.
 //!
 //! # Examples
 //!
@@ -34,15 +35,16 @@
 //! fn main() -> input_reader::Result<()> {
 //!     let mut reader = MemoryReader::new("json".as_bytes())?;
 //!
-//!     assert_eq!(reader.peek(), Some('j'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), Some('s'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), Some('o'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), Some('n'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), None);
+//!     assert_eq!(reader.peek(0), Some('j'));
+//!     assert_eq!(reader.peek(1), Some('s'));
+//!     reader.consume(1)?;
+//!     assert_eq!(reader.peek(1), Some('o'));
+//!     reader.consume(0)?;
+//!     assert_eq!(reader.peek(2), Some('n'));
+//!     reader.consume(2)?;
+//!     assert_eq!(reader.peek(0), Some('n'));
+//!     reader.consume(1)?;
+//!     assert_eq!(reader.peek(0), None);
 //!
 //!     Ok(())
 //! }
@@ -56,23 +58,24 @@
 //! fn main() -> input_reader::Result<()> {
 //!     let mut reader = BufferedReader::new("json".as_bytes())?;
 //!
-//!     assert_eq!(reader.peek(), Some('j'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), Some('s'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), Some('o'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), Some('n'));
-//!     reader.consume()?;
-//!     assert_eq!(reader.peek(), None);
+//!     assert_eq!(reader.peek(0), Some('j'));
+//!     assert_eq!(reader.peek(1), Some('s'));
+//!     reader.consume(1)?;
+//!     assert_eq!(reader.peek(1), Some('o'));
+//!     reader.consume(0)?;
+//!     assert_eq!(reader.peek(2), Some('n'));
+//!     reader.consume(2)?;
+//!     assert_eq!(reader.peek(0), Some('n'));
+//!     reader.consume(1)?;
+//!     assert_eq!(reader.peek(0), None);
 //!
 //!     Ok(())
 //! }
 //! ```
 //!
 //! [`Read`]: [`std::io::Read`]
-//! [`peek`]: [`Reader::peek`]
-//! [`consume`]: [`Reader::consume`]
+//! [`peek(k)`]: [`Reader::peek`]
+//! [`consume(k)`]: [`Reader::consume`]
 
 use std::result;
 use std::str;
@@ -88,49 +91,46 @@ pub use memory_reader::MemoryReader;
 ///
 /// Implementors of the `ReadInput` trait are called 'input readers'.
 ///
-/// Input readers are defined by two required methods, [`peek()`] and
-/// [`consume()`].
-/// Each call to [`peek()`] will attempt to return the current
-/// character from memory.
-/// Each call to [`consume()`] will attempt to advance the input reader to the
-/// next character in the input.
+/// Input readers are defined by two required methods, [`peek(k)`] and
+/// [`consume(k)`].
+/// Each call to [`peek(k)`] will attempt to return the k-th character from
+/// the current position of the input reader.
+/// Each call to [`consume(k)`] will attempt to advance the input reader's
+/// position by k characters.
 ///
 /// # Examples
 ///
-/// Read input from a buffer of bytes, since [`&[u8]`] implements [`Read`]:
+/// Read input from a buffer of bytes, since [`&[u8]`][`std::slice`] implements
+/// [`Read`]:
 ///
 /// [`Read`]: [`std::io::Read`]
-/// [`&[u8]`]: [`std::slice`]
 ///
 /// ```
 /// use json::input_reader::{self, MemoryReader, ReadInput};
 ///
 /// fn main() -> input_reader::Result<()> {
-// TODO: replace binary string with regular string, and use .as_bytes() instead
-///     let buf: &[u8] = b"json";
+///     let buf: &[u8] = "json".as_bytes();
 ///     let mut reader = MemoryReader::new(buf)?;
 ///
-///     assert_eq!(reader.peek(), Some('j'));
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), Some('s'));
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), Some('o'));
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), Some('n'));
-///     reader.consume()?;
-///     assert_eq!(reader.peek(), None);
+///     assert_eq!(reader.peek(0), Some('j'));
+///     assert_eq!(reader.peek(1), Some('s'));
+///     reader.consume(1)?;
+///     assert_eq!(reader.peek(1), Some('o'));
+///     reader.consume(0)?;
+///     assert_eq!(reader.peek(2), Some('n'));
+///     reader.consume(2)?;
+///     assert_eq!(reader.peek(0), Some('n'));
+///     reader.consume(1)?;
+///     assert_eq!(reader.peek(0), None);
 ///
 ///     Ok(())
 /// }
 /// ```
 ///
-/// [`peek()`]: [`ReadInput::peek`]
-/// [`consume()`]: [`ReadInput::consume`]
+/// [`peek(k)`]: [`ReadInput::peek`]
+/// [`consume(k)`]: [`ReadInput::consume`]
 pub trait ReadInput {
-    /// Returns the current character in the input.
-    ///
-    /// It is guaranteed that [`None`] will be returned only if no more
-    /// characters are left in the input.
+    /// Returns the k-th character in the input from the current position.
     ///
     /// # Examples
     ///
@@ -140,14 +140,18 @@ pub trait ReadInput {
     /// fn main() -> input_reader::Result<()> {
     ///     let mut reader = MemoryReader::new("json".as_bytes())?;
     ///
-    ///     assert_eq!(reader.peek(), Some('j'));
+    ///     assert_eq!(reader.peek(0), Some('j'));
+    ///     assert_eq!(reader.peek(1), Some('s'));
+    ///     assert_eq!(reader.peek(2), Some('o'));
+    ///     assert_eq!(reader.peek(3), Some('n'));
+    ///     assert_eq!(reader.peek(4), None);
     ///
     ///     Ok(())
     /// }
     /// ```
-    fn peek(&self) -> Option<char>;
+    fn peek(&self, k: usize) -> Option<char>;
 
-    /// Advances the input reader by one character.
+    /// Advances the input reader's position by k characters.
     ///
     /// # Errors
     /// This method, as of right now, can only fail when trying to refill the buffer,
@@ -165,18 +169,17 @@ pub trait ReadInput {
     /// use json::input_reader::{self, MemoryReader, ReadInput};
     ///
     /// fn main() -> input_reader::Result<()> {
-    // TODO: same as on line 109
-    ///     let buf: &[u8] = b"json";
+    ///     let buf: &[u8] = "json".as_bytes();
     ///     let mut reader = MemoryReader::new(buf)?;
     ///
-    ///     assert_eq!(reader.peek(), Some('j'));
-    ///     reader.consume()?;
-    ///     assert_eq!(reader.peek(), Some('s'));
+    ///     assert_eq!(reader.peek(0), Some('j'));
+    ///     reader.consume(2)?;
+    ///     assert_eq!(reader.peek(0), Some('o'));
     ///
     ///     Ok(())
     /// }
     /// ```
-    fn consume(&mut self) -> Result<()>;
+    fn consume(&mut self, k: usize) -> Result<()>;
 
     /// Checks whether or not the input has ran out of characters.
     ///
@@ -188,23 +191,23 @@ pub trait ReadInput {
     /// fn main() -> input_reader::Result<()> {
     ///     let mut reader = MemoryReader::new("json".as_bytes())?;
     ///
-    ///     reader.consume()?;
-    ///     reader.consume()?;
-    ///     reader.consume()?;
-    ///     reader.consume()?;
+    ///     reader.consume(1)?;
+    ///     reader.consume(2)?;
+    ///     reader.consume(0)?;
+    ///     reader.consume(1)?;
     ///     assert!(reader.has_reached_eof());
     ///
     ///     Ok(())
     /// }
     /// ```
     fn has_reached_eof(&self) -> bool {
-        matches!(self.peek(), None)
+        matches!(self.peek(0), None)
     }
 }
 
 /// A specialized [`Result`] type for input reading operations.
 ///
-/// This type is currently used for the [`consume()`] method as it might fail.
+/// This type is currently used for the [`consume(k)`] method as it might fail.
 ///
 /// This typedef is generally used to avoid writing out [`input_reader::Error`]
 /// directly and is otherwise a direct mapping to [`Result`].
@@ -215,7 +218,7 @@ pub trait ReadInput {
 /// will generally use `input_reader::Result` instead of shadowing the
 /// [prelude]'s import of [`std::result::Result`].
 ///
-/// [`consume()`]: [`ReadInput::consume`]
+/// [`consume(k)`]: [`ReadInput::consume`]
 /// [`input_reader::Error`]: Error
 /// [`Result`]: std::result::Result
 /// [prelude]: std::prelude
@@ -235,7 +238,7 @@ pub trait ReadInput {
 /// {
 ///     let reader = BufferedReader::new(input)?;
 ///
-///     Ok(reader.peek())
+///     Ok(reader.peek(0))
 /// }
 /// ```
 pub type Result<T> = result::Result<T, Error>;
@@ -327,10 +330,10 @@ mod tests {
         let mut buf_reader = BufferedReader::new(SOURCE)?;
         let mut mem_reader = MemoryReader::new(SOURCE)?;
 
-        (buf_reader.consume()?, mem_reader.consume()?);
-        (buf_reader.consume()?, mem_reader.consume()?);
-        (buf_reader.consume()?, mem_reader.consume()?);
-        (buf_reader.consume()?, mem_reader.consume()?);
+        (buf_reader.consume(1)?, mem_reader.consume(1)?);
+        (buf_reader.consume(2)?, mem_reader.consume(2)?);
+        (buf_reader.consume(0)?, mem_reader.consume(0)?);
+        (buf_reader.consume(1)?, mem_reader.consume(1)?);
 
         assert!(buf_reader.has_reached_eof());
         assert!(mem_reader.has_reached_eof());

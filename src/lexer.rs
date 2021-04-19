@@ -1,7 +1,43 @@
-use std::mem;
+use std::{error, fmt, mem, result};
 
-use super::{Error, Result};
 use crate::input_reader;
+
+#[derive(Debug)]
+pub struct Error {
+    #[allow(dead_code)]
+    repr: Repr,
+}
+
+#[derive(Debug)]
+enum Repr {
+    InputReader(input_reader::Error),
+}
+
+impl From<input_reader::Error> for Error {
+    fn from(error: input_reader::Error) -> Error {
+        Error {
+            repr: Repr::InputReader(error),
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.repr {
+            Repr::InputReader(input_reader_err) => write!(f, "{}", input_reader_err),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        Some(match &self.repr {
+            Repr::InputReader(input_reader_err) => input_reader_err,
+        })
+    }
+}
+
+pub type Result<T> = result::Result<T, Error>;
 
 pub struct Lexer<R> {
     input_reader: R,

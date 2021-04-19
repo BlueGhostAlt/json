@@ -419,10 +419,15 @@ mod tests {
         let mut buf_reader = BufferedReader::new(SOURCE)?;
         let mut mem_reader = MemoryReader::new(SOURCE)?;
 
-        (buf_reader.consume(1)?, mem_reader.consume(1)?);
-        (buf_reader.consume(2)?, mem_reader.consume(2)?);
-        (buf_reader.consume(0)?, mem_reader.consume(0)?);
-        (buf_reader.consume(1)?, mem_reader.consume(1)?);
+        buf_reader.consume(1)?;
+        buf_reader.consume(2)?;
+        buf_reader.consume(0)?;
+        buf_reader.consume(1)?;
+
+        mem_reader.consume(1)?;
+        mem_reader.consume(2)?;
+        mem_reader.consume(0)?;
+        mem_reader.consume(1)?;
 
         assert!(buf_reader.has_reached_eof());
         assert!(mem_reader.has_reached_eof());

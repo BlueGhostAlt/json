@@ -6,7 +6,7 @@ use std::str;
 
 use super::{Error, ReadInput, Result};
 
-const DEFAULT_BUF_READER_CAPACITY: usize = 2;
+const DEFAULT_BUF_READER_CAPACITY: usize = 16;
 
 /// The `BufferedReader<R>` struct provides in-memory buffered input reading.
 ///
@@ -48,8 +48,8 @@ pub struct BufferedReader<R: io::Read> {
 
 impl<R: io::Read> BufferedReader<R> {
     /// Creates a new `BuffferedReader<R>` with a default buffer capacity. The
-    /// default is currently 8 bytes, 2 characters, but may change in the
-    /// future.
+    /// default is currently 68 bytes, allowing for peeking 16 characters, but
+    /// may change in thefuture.
     ///
     /// # Examples
     ///
@@ -67,7 +67,7 @@ impl<R: io::Read> BufferedReader<R> {
     }
 
     fn with_capacity(cap: usize, inner: R) -> Result<Self> {
-        let mut buffer = Vec::with_capacity(cap * mem::size_of::<char>());
+        let mut buffer = Vec::with_capacity((cap + 1) * mem::size_of::<char>());
         unsafe {
             buffer.set_len(cap * mem::size_of::<char>());
             inner.initializer().initialize(&mut buffer);

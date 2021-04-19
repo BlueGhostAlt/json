@@ -2,7 +2,7 @@ use std::{cmp, io, mem, str};
 
 use super::{Error, ReadInput, Result};
 
-const DEFAULT_BUF_READER_CAPACITY: usize = 16;
+pub const BUF_READER_CAPACITY: usize = 16;
 
 /// The `BufferedReader<R>` struct provides in-memory buffered input reading.
 ///
@@ -39,7 +39,7 @@ pub struct BufferedReader<R> {
     pos: usize,
     cap: usize,
 
-    chars: [Option<char>; DEFAULT_BUF_READER_CAPACITY],
+    chars: [Option<char>; BUF_READER_CAPACITY],
 }
 
 impl<R: io::Read> BufferedReader<R> {
@@ -59,7 +59,7 @@ impl<R: io::Read> BufferedReader<R> {
     /// }
     /// ```
     pub fn new(source: R) -> Result<Self> {
-        BufferedReader::with_capacity(DEFAULT_BUF_READER_CAPACITY, source)
+        BufferedReader::with_capacity(BUF_READER_CAPACITY, source)
     }
 
     fn with_capacity(cap: usize, inner: R) -> Result<Self> {
@@ -75,7 +75,7 @@ impl<R: io::Read> BufferedReader<R> {
             pos: 0,
             cap: 0,
 
-            chars: [None; DEFAULT_BUF_READER_CAPACITY],
+            chars: [None; BUF_READER_CAPACITY],
         };
         buf_reader.fill_buf()?;
 
@@ -106,6 +106,10 @@ impl<R: io::Read> ReadInput for BufferedReader<R> {
     }
 
     fn consume(&mut self, k: usize) -> Result<()> {
+        if k > self.chars.len() {
+            return Err(Error::overconsume_buffer(k));
+        }
+
         let len = self
             .chars
             .iter()

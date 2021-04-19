@@ -85,6 +85,8 @@ mod memory_reader;
 pub use buffered_reader::BufferedReader;
 pub use memory_reader::MemoryReader;
 
+use buffered_reader::BUF_READER_CAPACITY;
+
 /// The `ReadInput` trait allows for peeking and consuming input.
 ///
 /// Implementors of the `ReadInput` trait are called 'input readers'.
@@ -152,11 +154,13 @@ pub trait ReadInput {
     /// Advances the input reader's position by k characters.
     ///
     /// # Errors
-    /// This method, as of right now, can only fail when trying to refill the
-    /// buffer, as is the case for the [`BufferedReader`]. Refilling the buffer
-    /// might either yield an [`io::Error`] when trying to read from the input,
-    /// or an [`str::Utf8Error`] while trying to convert the buffered bytes to
-    /// a string slice.
+    /// This method can fail only when using a [`BufferedReader`], due to
+    /// multiple reasons. One of them is trying to consume more characters than
+    /// the internal buffer holds, 16 characters.
+    /// This method can also fail when trying to refill the buffer. Refilling
+    /// the buffer might either yield an [`io::Error`] when trying to read from
+    /// the input, or an [`str::Utf8Error`] while trying to convert the
+    /// buffered bytes to a string slice.
     ///
     /// It is guaranteed that this operation will never fail for the
     /// [`MemoryReader`] input reader.
@@ -307,8 +311,9 @@ pub type Result<T> = result::Result<T, Error>;
 
 /// The error type for input reading operations of the [`ReadInput`] trait.
 ///
-/// Errors originate entirely from the lower-level modules, Errors being either
-/// [I/O errors] or [UTF-8 errors].
+/// Errors originate mostly from the lower-level modules, foreign Errors being
+/// either [I/O errors] or [UTF-8 errors]. There might also be buffer errors
+/// caused by using a [`BufferedReader`] wrong.
 ///
 /// [I/O errors]: std::io::Error
 /// [UTF-8 errors]: std::str::Utf8Error
@@ -322,6 +327,20 @@ pub struct Error {
 enum Repr {
     Io(io::Error),
     Utf8(str::Utf8Error),
+    Buffer(BufferErrorKind),
+}
+
+#[derive(Debug)]
+enum BufferErrorKind {
+    Overconsumed(usize),
+}
+
+impl Error {
+    fn overconsume_buffer(count: usize) -> Error {
+        Error {
+            repr: Repr::Buffer(BufferErrorKind::Overconsumed(count)),
+        }
+    }
 }
 
 impl From<io::Error> for Error {
@@ -345,16 +364,24 @@ impl fmt::Display for Error {
         match &self.repr {
             Repr::Io(io_err) => write!(f, "{}", io_err),
             Repr::Utf8(utf8_err) => write!(f, "{}", utf8_err),
+            Repr::Buffer(buffer_err) => match buffer_err {
+                BufferErrorKind::Overconsumed(count) => write!(
+                    f,
+                    "input reader consumed {} characters when the buffer holds only {} characters",
+                    count, BUF_READER_CAPACITY
+                ),
+            },
         }
     }
 }
 
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        Some(match &self.repr {
-            Repr::Io(io_err) => io_err,
-            Repr::Utf8(utf8_err) => utf8_err,
-        })
+        match &self.repr {
+            Repr::Io(io_err) => Some(io_err),
+            Repr::Utf8(utf8_err) => Some(utf8_err),
+            Repr::Buffer(_) => None,
+        }
     }
 }
 

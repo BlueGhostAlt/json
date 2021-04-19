@@ -13,7 +13,8 @@ const SOURCE: &[u8] = r#"{
                     "entry": {
                         "id": "First Example Entry",
                         "states": [true, false, true, true]
-                    }
+                    },
+                    "reference": null
                 }
             ]
         }

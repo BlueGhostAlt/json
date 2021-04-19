@@ -1,8 +1,4 @@
-use std::cmp;
-use std::io;
-use std::iter;
-use std::mem;
-use std::str;
+use std::{cmp, io, mem, str};
 
 use super::{Error, ReadInput, Result};
 
@@ -37,7 +33,7 @@ const DEFAULT_BUF_READER_CAPACITY: usize = 16;
 ///     Ok(())
 /// }
 /// ```
-pub struct BufferedReader<R: io::Read> {
+pub struct BufferedReader<R> {
     inner: R,
     buf: Box<[u8]>,
     pos: usize,
@@ -123,19 +119,6 @@ impl<R: io::Read> ReadInput for BufferedReader<R> {
     }
 }
 
-impl<R: io::Read> Iterator for BufferedReader<R> {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let c = self.peek(0)?;
-        self.consume(1).ok()?;
-
-        Some(c)
-    }
-}
-
-impl<R: io::Read> iter::FusedIterator for BufferedReader<R> {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,12 +183,13 @@ mod tests {
     #[test]
     fn test_next() -> Result<()> {
         let mut buf_reader = BufferedReader::new(SOURCE)?;
+        let mut input_reader = buf_reader.input_reader();
 
-        assert_eq!(buf_reader.next(), Some('j'));
-        assert_eq!(buf_reader.next(), Some('s'));
-        assert_eq!(buf_reader.next(), Some('o'));
-        assert_eq!(buf_reader.next(), Some('n'));
-        assert_eq!(buf_reader.next(), None);
+        assert_eq!(input_reader.next(), Some('j'));
+        assert_eq!(input_reader.next(), Some('s'));
+        assert_eq!(input_reader.next(), Some('o'));
+        assert_eq!(input_reader.next(), Some('n'));
+        assert_eq!(input_reader.next(), None);
 
         Ok(())
     }

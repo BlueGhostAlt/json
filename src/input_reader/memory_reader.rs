@@ -1,7 +1,4 @@
-use std::cmp;
-use std::io;
-use std::iter;
-use std::str;
+use std::{cmp, io, str};
 
 use super::{Error, ReadInput, Result};
 
@@ -82,27 +79,6 @@ impl ReadInput for MemoryReader {
     }
 }
 
-impl Iterator for MemoryReader {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let c = self.peek(0)?;
-        self.consume(1).ok()?;
-
-        Some(c)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.buf.len() - self.pos, Some(self.buf.len() - self.pos))
-    }
-}
-
-unsafe impl iter::TrustedLen for MemoryReader {}
-
-impl ExactSizeIterator for MemoryReader {}
-
-impl iter::FusedIterator for MemoryReader {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,12 +143,13 @@ mod tests {
     #[test]
     fn test_next() -> Result<()> {
         let mut mem_reader = MemoryReader::new(SOURCE)?;
+        let mut input_reader = mem_reader.input_reader();
 
-        assert_eq!(mem_reader.next(), Some('j'));
-        assert_eq!(mem_reader.next(), Some('s'));
-        assert_eq!(mem_reader.next(), Some('o'));
-        assert_eq!(mem_reader.next(), Some('n'));
-        assert_eq!(mem_reader.next(), None);
+        assert_eq!(input_reader.next(), Some('j'));
+        assert_eq!(input_reader.next(), Some('s'));
+        assert_eq!(input_reader.next(), Some('o'));
+        assert_eq!(input_reader.next(), Some('n'));
+        assert_eq!(input_reader.next(), None);
 
         Ok(())
     }

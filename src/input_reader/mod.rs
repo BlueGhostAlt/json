@@ -77,9 +77,7 @@
 //! [`peek(k)`]: [`Reader::peek`]
 //! [`consume(k)`]: [`Reader::consume`]
 
-use std::result;
-use std::str;
-use std::{error, fmt, io};
+use std::{error, fmt, io, iter, result, str};
 
 mod buffered_reader;
 mod memory_reader;
@@ -154,11 +152,11 @@ pub trait ReadInput {
     /// Advances the input reader's position by k characters.
     ///
     /// # Errors
-    /// This method, as of right now, can only fail when trying to refill the buffer,
-    /// as is the case for the [`BufferedReader`]. Refilling the buffer might
-    /// either yield an [`io::Error`] when trying to read from the input, or
-    /// an [`str::Utf8Error`] while trying to convert the buffered bytes to a
-    /// string slice.
+    /// This method, as of right now, can only fail when trying to refill the
+    /// buffer, as is the case for the [`BufferedReader`]. Refilling the buffer
+    /// might either yield an [`io::Error`] when trying to read from the input,
+    /// or an [`str::Utf8Error`] while trying to convert the buffered bytes to
+    /// a string slice.
     ///
     /// It is guaranteed that this operation will never fail for the
     /// [`MemoryReader`] input reader.
@@ -203,7 +201,71 @@ pub trait ReadInput {
     fn has_reached_eof(&self) -> bool {
         matches!(self.peek(0), None)
     }
+
+    /// Returns an ergonomic iterator over this input reader's input
+    /// characters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use json::input_reader::{self, MemoryReader, ReadInput};
+    ///
+    /// fn main() -> input_reader::Result<()> {
+    ///     let mut reader = MemoryReader::new("json".as_bytes())?;
+    ///     let mut input_reader = reader.input_reader();
+    ///
+    ///     assert_eq!(
+    ///         input_reader
+    ///             .map(|c| c.to_ascii_uppercase())
+    ///             .collect::<String>(),
+    ///         String::from("JSON")
+    ///     );
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    fn input_reader(&mut self) -> InputReader<'_, Self>
+    where
+        Self: Sized,
+    {
+        InputReader(self)
+    }
 }
+
+/// Iterator over an input reader's input
+///
+/// This struct is created by the [`input_reader`] method on input readers.
+///
+/// # Examples
+///
+/// ```
+/// use json::input_reader::{self, MemoryReader, ReadInput};
+///
+/// fn main() -> input_reader::Result<()> {
+///     let mut reader = MemoryReader::new("json".as_bytes())?;
+///     let mut input_reader = reader.input_reader();
+///
+///     assert!(input_reader.all(|c| c.is_alphabetic()));
+///
+///     Ok(())
+/// }
+/// ```
+///
+/// [`input_reader`]: [`ReadInput::input_reader`]
+pub struct InputReader<'a, R>(&'a mut R);
+
+impl<R: ReadInput> Iterator for InputReader<'_, R> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let c = self.0.peek(0)?;
+        self.0.consume(1).ok()?;
+
+        Some(c)
+    }
+}
+
+impl<R: ReadInput> iter::FusedIterator for InputReader<'_, R> {}
 
 /// A specialized [`Result`] type for input reading operations.
 ///
@@ -307,20 +369,20 @@ mod tests {
 
     #[test]
     fn test_empty_readers_are_eq() -> Result<()> {
-        let buf_reader = BufferedReader::new(EMPTY_SOURCE)?;
-        let mem_reader = MemoryReader::new(EMPTY_SOURCE)?;
+        let mut buf_reader = BufferedReader::new(EMPTY_SOURCE)?;
+        let mut mem_reader = MemoryReader::new(EMPTY_SOURCE)?;
 
-        assert!(buf_reader.eq(mem_reader));
+        assert!(buf_reader.input_reader().eq(mem_reader.input_reader()));
 
         Ok(())
     }
 
     #[test]
     fn test_readers_are_eq() -> Result<()> {
-        let buf_reader = BufferedReader::new(SOURCE)?;
-        let mem_reader = MemoryReader::new(SOURCE)?;
+        let mut buf_reader = BufferedReader::new(SOURCE)?;
+        let mut mem_reader = MemoryReader::new(SOURCE)?;
 
-        assert!(buf_reader.eq(mem_reader));
+        assert!(buf_reader.input_reader().eq(mem_reader.input_reader()));
 
         Ok(())
     }

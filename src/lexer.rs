@@ -1,4 +1,4 @@
-use std::{error, fmt, mem, result};
+use std::{error, fmt, result};
 
 use crate::input_reader;
 
@@ -14,7 +14,7 @@ enum Repr {
 }
 
 impl From<input_reader::Error> for Error {
-    fn from(error: input_reader::Error) -> Error {
+    fn from(error: input_reader::Error) -> Self {
         Error {
             repr: Repr::InputReader(error),
         }
@@ -101,48 +101,30 @@ impl<R: input_reader::ReadInput> Lexer<R> {
     }
 
     pub fn consume(&mut self) -> Result<()> {
+        self.current_token = None;
+
         if let Some(c) = self.input_reader.peek(0) {
             self.input_reader.consume(1).map_err(Error::from)?;
 
-            let token = match c {
-                ' ' | '\n' | '\r' | '\t' => Token::from(Whitespace),
-                ',' => Token::from(Comma),
-                '{' => Token::from(OpenBrace),
-                '}' => Token::from(CloseBrace),
-                '[' => Token::from(OpenBracket),
-                ']' => Token::from(CloseBracket),
-                ':' => Token::from(Colon),
-                'n' => {
-                    if self.match_keyword("null")? {
-                        Token::from(Literal { kind: Null })
-                    } else {
-                        Token::from(Unknown)
-                    }
-                }
-                't' => {
-                    if self.match_keyword("true")? {
-                        Token::from(Literal {
-                            kind: Boolean(true),
-                        })
-                    } else {
-                        Token::from(Unknown)
-                    }
-                }
-                'f' => {
-                    if self.match_keyword("false")? {
-                        Token::from(Literal {
-                            kind: Boolean(false),
-                        })
-                    } else {
-                        Token::from(Unknown)
-                    }
-                }
-                _ => Token::from(Unknown),
+            let kind = match c {
+                ' ' | '\n' | '\r' | '\t' => Whitespace,
+                ',' => Comma,
+                '{' => OpenBrace,
+                '}' => CloseBrace,
+                '[' => OpenBracket,
+                ']' => CloseBracket,
+                ':' => Colon,
+                'n' if self.match_keyword("null")? => Literal { kind: Null },
+                't' if self.match_keyword("true")? => Literal {
+                    kind: Boolean(true),
+                },
+                'f' if self.match_keyword("false")? => Literal {
+                    kind: Boolean(false),
+                },
+                _ => Unknown,
             };
 
-            self.current_token = Some(token)
-        } else {
-            self.current_token = None
+            self.current_token = Some(Token::from(kind));
         }
 
         Ok(())
@@ -165,8 +147,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 }
 
 impl From<TokenKind> for Token {
-    // TODO: Replace concrete types with Self in From implementations
-    fn from(kind: TokenKind) -> Token {
+    fn from(kind: TokenKind) -> Self {
         Token { kind }
     }
 }
@@ -183,7 +164,7 @@ impl<R: input_reader::ReadInput> Iterator for IntoIter<R> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = mem::take(&mut self.lexer.current_token)?;
+        let c = self.lexer.current_token.take()?;
         self.lexer.consume().ok();
 
         Some(c)

@@ -336,7 +336,7 @@ enum BufferErrorKind {
 }
 
 impl Error {
-    fn overconsume_buffer(count: usize) -> Error {
+    fn overconsume_buffer(count: usize) -> Self {
         Error {
             repr: Repr::Buffer(BufferErrorKind::Overconsumed(count)),
         }
@@ -344,7 +344,7 @@ impl Error {
 }
 
 impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Error {
+    fn from(error: io::Error) -> Self {
         Error {
             repr: Repr::Io(error),
         }
@@ -352,7 +352,7 @@ impl From<io::Error> for Error {
 }
 
 impl From<str::Utf8Error> for Error {
-    fn from(error: str::Utf8Error) -> Error {
+    fn from(error: str::Utf8Error) -> Self {
         Error {
             repr: Repr::Utf8(error),
         }

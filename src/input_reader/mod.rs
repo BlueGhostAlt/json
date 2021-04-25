@@ -256,6 +256,7 @@ pub trait ReadInput {
 /// ```
 ///
 /// [`input_reader`]: [`ReadInput::input_reader`]
+#[derive(Debug)]
 pub struct InputReader<'a, R>(&'a mut R);
 
 impl<R: ReadInput> Iterator for InputReader<'_, R> {
@@ -367,7 +368,7 @@ impl fmt::Display for Error {
             Repr::Buffer(buffer_err) => match buffer_err {
                 BufferErrorKind::Overconsumed(count) => write!(
                     f,
-                    "input reader consumed {} characters when the buffer holds only {} characters",
+                    "input reader tried consuming {} characters when its buffer holds only {} characters",
                     count, BUF_READER_CAPACITY
                 ),
             },

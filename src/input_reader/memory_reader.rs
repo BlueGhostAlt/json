@@ -1,6 +1,6 @@
 use std::{cmp, io, str};
 
-use super::{Error, ReadInput, Result};
+use super::{ReadInput, Result};
 
 /// The `MemoryReader` struct provides in-memory whole input reading.
 ///
@@ -32,6 +32,7 @@ use super::{Error, ReadInput, Result};
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug)]
 pub struct MemoryReader {
     buf: Box<[char]>,
     pos: usize,
@@ -56,8 +57,8 @@ impl MemoryReader {
         R: io::Read,
     {
         let mut buffer = Vec::new();
-        source.read_to_end(&mut buffer).map_err(Error::from)?;
-        let buffer = str::from_utf8(&buffer).map_err(Error::from)?;
+        source.read_to_end(&mut buffer)?;
+        let buffer = str::from_utf8(&buffer)?;
         let buffer = buffer.chars().collect::<Vec<_>>();
 
         Ok(Self {

@@ -33,6 +33,7 @@ pub const BUF_READER_CAPACITY: usize = 16;
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug)]
 pub struct BufferedReader<R> {
     inner: R,
     buf: Box<[u8]>,
@@ -86,12 +87,12 @@ impl<R: io::Read> BufferedReader<R> {
         // Branch using `>=` instead of the more correct `==` to tell the
         // compiler that the pos..cap slice is always valid.
         if self.pos >= self.cap {
-            self.cap = self.inner.read(&mut self.buf).map_err(Error::from)?;
+            self.cap = self.inner.read(&mut self.buf)?;
             self.pos = 0;
         }
 
         let buf = &self.buf[self.pos..self.cap];
-        let str = str::from_utf8(buf).map_err(Error::from)?;
+        let str = str::from_utf8(buf)?;
 
         let mut chars = str.chars();
         self.chars.iter_mut().for_each(|c| *c = chars.next());

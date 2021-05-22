@@ -66,7 +66,7 @@ impl<R: io::Read> BufferedReader<R> {
     /// }
     /// ```
     pub fn new(source: R) -> Result<Self> {
-        BufferedReader::with_capacity(BUF_READER_CAPACITY, source)
+        Self::with_capacity(BUF_READER_CAPACITY, source)
     }
 
     fn with_capacity(cap: usize, inner: R) -> Result<Self> {
@@ -122,7 +122,7 @@ impl<R: io::Read> ReadInput for BufferedReader<R> {
             .chars
             .iter()
             .take(k)
-            .filter_map(|c| c.map(|c| c.len_utf8()))
+            .filter_map(|c| c.map(char::len_utf8))
             .sum::<usize>();
         self.pos = cmp::min(self.pos + len, self.cap);
         self.fill_buf()?;

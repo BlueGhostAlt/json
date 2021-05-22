@@ -20,12 +20,12 @@ enum ExpectedKind {
     Digit,
 }
 
-use ExpectedKind::*;
-use Repr::*;
+use ExpectedKind::{Digit, Keyword};
+use Repr::{Expected, InputReader};
 
 impl From<input_reader::Error> for Error {
     fn from(error: input_reader::Error) -> Self {
-        Error {
+        Self {
             repr: Repr::InputReader(error),
         }
     }
@@ -33,7 +33,7 @@ impl From<input_reader::Error> for Error {
 
 impl From<Repr> for Error {
     fn from(repr: Repr) -> Self {
-        Error { repr }
+        Self { repr }
     }
 }
 
@@ -100,22 +100,24 @@ enum LiteralKind {
     Number(f64),
 }
 
-use LiteralKind::*;
-use TokenKind::*;
+use LiteralKind::{Boolean, Null, Number};
+use TokenKind::{
+    CloseBrace, CloseBracket, Colon, Comma, Literal, OpenBrace, OpenBracket, Unknown, Whitespace,
+};
 
 impl<R> Lexer<R> {
-    pub fn peek(&self) -> Option<&Token> {
+    pub const fn peek(&self) -> Option<&Token> {
         self.current_token.as_ref()
     }
 
-    fn into_iter(self) -> IntoIter<R> {
+    const fn into_iter(self) -> IntoIter<R> {
         IntoIter { lexer: self }
     }
 }
 
 impl<R: input_reader::ReadInput> Lexer<R> {
     pub fn new(input_reader: R) -> Result<Self> {
-        let mut lexer = Lexer {
+        let mut lexer = Self {
             input_reader,
             current_token: None,
         };
@@ -223,7 +225,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         match first_digit {
             '1'..='9' => digits.extend(self.consume_digits()?),
             '0' => {}
-            _ => Err(Error::from(Expected(Digit)))?,
+            _ => return Err(Error::from(Expected(Digit))),
         }
 
         if matches!(self.input_reader.peek(0), Some(c) if c == '.') {
@@ -232,7 +234,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 
             let fractional = self.consume_digits()?;
             if matches!(fractional.first(), None) {
-                Err(Error::from(Expected(Digit)))?
+                return Err(Error::from(Expected(Digit)));
             }
 
             digits.extend(fractional);
@@ -255,7 +257,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 
             let exponent = self.consume_digits()?;
             if matches!(exponent.first(), None) {
-                Err(Error::from(Expected(Digit)))?
+                return Err(Error::from(Expected(Digit)));
             }
 
             digits.extend(exponent);
@@ -267,7 +269,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 
 impl From<TokenKind> for Token {
     fn from(kind: TokenKind) -> Self {
-        Token { kind }
+        Self { kind }
     }
 }
 

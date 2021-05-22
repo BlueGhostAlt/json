@@ -48,6 +48,12 @@ impl<R: io::Read> BufferedReader<R> {
     /// default is currently 68 bytes, allowing for peeking 16 characters, but
     /// may change in the future.
     ///
+    /// # Errors
+    ///
+    /// This function can fail only if it doesn't manage to fill the internal
+    /// buffer. For more details see the documentation for
+    /// [`ReadInput::consume`].
+    ///
     /// # Examples
     ///
     /// ```

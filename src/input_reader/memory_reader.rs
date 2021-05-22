@@ -41,6 +41,11 @@ pub struct MemoryReader {
 impl MemoryReader {
     /// Creates a new `MemoryReader` by reading the whole input.
     ///
+    /// # Errors
+    ///
+    /// This associated function can fail only if the provided input is not
+    /// valid UTF-8.
+    ///
     /// # Examples
     ///
     /// ```

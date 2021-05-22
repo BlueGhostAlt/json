@@ -17,7 +17,7 @@
 //! as it will only ever buffer a fixed amount of bytes, at the cost of having
 //! to refill its internal buffer once it has been consumed.
 //!
-//! # ReadInput
+//! # Input reading in general
 //!
 //! The [`ReadInput`] trait describes a unifying interface for input readers,
 //! with two fundamental methods: [`peek(k)`] and [`consume(k)`].

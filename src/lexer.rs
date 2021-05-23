@@ -1,4 +1,4 @@
-use std::{error, fmt, result};
+use std::{borrow::Cow, error, fmt, result};
 
 use crate::input_reader;
 
@@ -70,7 +70,7 @@ pub struct Lexer<R> {
 pub struct Token {
     #[allow(dead_code)]
     kind: TokenKind,
-    raw: String,
+    raw: Cow<'static, str>,
 }
 
 #[derive(Debug)]
@@ -106,10 +106,14 @@ use TokenKind::{
     CloseBrace, CloseBracket, Colon, Comma, Literal, OpenBrace, OpenBracket, Unknown, Whitespace,
 };
 
-impl From<(TokenKind, String)> for Token {
-    fn from((kind, raw): (TokenKind, String)) -> Self {
+impl From<(TokenKind, Cow<'static, str>)> for Token {
+    fn from((kind, raw): (TokenKind, Cow<'static, str>)) -> Self {
         Self { kind, raw }
     }
+}
+
+fn char_to_cow_str(ch: char) -> Cow<'static, str> {
+    Cow::from(String::from(ch))
 }
 
 impl<R> Lexer<R> {
@@ -138,18 +142,24 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 
         if let Some(c) = self.advance_input_reader()? {
             let (kind, raw) = match c {
-                ' ' | '\n' | '\r' | '\t' => (Whitespace, c.into()),
-                ',' => (Comma, c.into()),
-                '{' => (OpenBrace, c.into()),
-                '}' => (CloseBrace, c.into()),
-                '[' => (OpenBracket, c.into()),
-                ']' => (CloseBracket, c.into()),
-                ':' => (Colon, c.into()),
-                'n' => (Literal { kind: Null }, self.match_keyword("null")?),
-                't' => (Literal { kind: Boolean }, self.match_keyword("true")?),
-                'f' => (Literal { kind: Boolean }, self.match_keyword("false")?),
-                '0'..='9' | '-' => (Literal { kind: Number }, self.match_number(c)?),
-                _ => (Unknown, c.into()),
+                ' ' | '\n' | '\r' | '\t' => (Whitespace, char_to_cow_str(c)),
+                ',' => (Comma, char_to_cow_str(c)),
+                '{' => (OpenBrace, char_to_cow_str(c)),
+                '}' => (CloseBrace, char_to_cow_str(c)),
+                '[' => (OpenBracket, char_to_cow_str(c)),
+                ']' => (CloseBracket, char_to_cow_str(c)),
+                ':' => (Colon, char_to_cow_str(c)),
+                'n' => (Literal { kind: Null }, self.match_keyword("null")?.into()),
+                't' => (
+                    Literal { kind: Boolean },
+                    self.match_keyword("true")?.into(),
+                ),
+                'f' => (
+                    Literal { kind: Boolean },
+                    self.match_keyword("false")?.into(),
+                ),
+                '0'..='9' | '-' => (Literal { kind: Number }, self.match_number(c)?.into()),
+                _ => (Unknown, Cow::Owned(c.into())),
             };
 
             self.current_token = Some(Token::from((kind, raw)));
@@ -168,18 +178,16 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         Ok(None)
     }
 
-    fn match_keyword(&mut self, kw: &'static str) -> Result<String> {
-        let actual = (0..kw.len() - 1)
-            .filter_map(|k| self.input_reader.peek(k))
-            .collect::<String>();
+    fn match_keyword(&mut self, kw: &'static str) -> Result<&'static str> {
+        let actual = (0..kw.len() - 1).filter_map(|k| self.input_reader.peek(k));
 
-        if &actual != &kw[1..] {
+        if actual.ne(kw.chars().skip(1)) {
             return Err(Error::from(Expected(Keyword(kw))));
         }
 
         self.input_reader.consume(kw.len() - 1)?;
 
-        Ok(actual)
+        Ok(kw)
     }
 
     fn consume_digits(&mut self) -> Result<String> {

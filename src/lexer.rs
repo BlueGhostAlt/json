@@ -173,7 +173,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
             .filter_map(|k| self.input_reader.peek(k))
             .collect::<String>();
 
-        if &actual != kw {
+        if &actual != &kw[1..] {
             return Err(Error::from(Expected(Keyword(kw))));
         }
 

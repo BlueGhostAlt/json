@@ -11,9 +11,10 @@ const SOURCE: &[u8] = r#"[
     19,
     -23,
     0.1,
-    -2.5
-    42e-1
-    18E1
+    -2.5,
+    42e-1,
+    18E1,
+    "This is a \t\u0020 string wow"
 ]"#
 .as_bytes();
 

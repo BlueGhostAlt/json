@@ -12,16 +12,26 @@ pub struct Error {
 enum Repr {
     InputReader(input_reader::Error),
     Expected(ExpectedKind),
+    Unexpected(char),
 }
 
 #[derive(Debug)]
 enum ExpectedKind {
     Keyword(&'static str),
-    Digit,
+    Digit(DigitKind),
+    StringTerminator,
+    EscapedCharacter,
 }
 
-use ExpectedKind::{Digit, Keyword};
-use Repr::{Expected, InputReader};
+#[derive(Debug)]
+enum DigitKind {
+    Dec,
+    Hex,
+}
+
+use DigitKind::{Dec, Hex};
+use ExpectedKind::{Digit, EscapedCharacter, Keyword, StringTerminator};
+use Repr::{Expected, InputReader, Unexpected};
 
 impl From<input_reader::Error> for Error {
     fn from(error: input_reader::Error) -> Self {
@@ -41,10 +51,16 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.repr {
             InputReader(input_reader_err) => write!(f, "{}", input_reader_err),
-            Expected(expected_err) => match expected_err {
-                Keyword(kw) => write!(f, "expected keyword {}", kw),
-                Digit => write!(f, "expected digit"),
+            Expected(expected_kind) => match expected_kind {
+                Keyword(kw) => write!(f, "expected keyword \"{}\"", kw),
+                Digit(kind) => match kind {
+                    Hex => write!(f, "expected hexadecimal digit"),
+                    Dec => write!(f, "expected digit"),
+                },
+                StringTerminator => write!(f, "expected string terminator '\"'"),
+                EscapedCharacter => write!(f, "expected escaped character"),
             },
+            Unexpected(unexpected_char) => write!(f, "unexpected character '{}'", unexpected_char),
         }
     }
 }
@@ -53,7 +69,8 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match &self.repr {
             InputReader(input_reader_err) => Some(input_reader_err),
-            Expected(_expected_err) => None,
+            Expected(_expected_kind) => None,
+            Unexpected(_unexpected_char) => None,
         }
     }
 }
@@ -99,6 +116,7 @@ enum LiteralKind {
     Null,
     Boolean,
     Number,
+    String,
 }
 
 use LiteralKind::{Boolean, Null, Number};
@@ -159,6 +177,12 @@ impl<R: input_reader::ReadInput> Lexer<R> {
                     self.match_keyword("false")?.into(),
                 ),
                 '0'..='9' | '-' => (Literal { kind: Number }, self.match_number(c)?.into()),
+                '"' => (
+                    Literal {
+                        kind: LiteralKind::String,
+                    },
+                    self.match_string()?.into(),
+                ),
                 _ => (Unknown, Cow::Owned(c.into())),
             };
 
@@ -215,7 +239,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         let first_digit = if first_digit == '-' {
             let c = self
                 .advance_input_reader()?
-                .ok_or_else(|| Error::from(Expected(Digit)))?;
+                .ok_or_else(|| Error::from(Expected(Digit(Dec))))?;
             literal.push(c);
 
             c
@@ -226,7 +250,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         match first_digit {
             '1'..='9' => literal.push_str(&self.consume_digits()?),
             '0' => {}
-            _ => return Err(Error::from(Expected(Digit))),
+            _ => return Err(Error::from(Expected(Digit(Dec)))),
         }
 
         if matches!(self.input_reader.peek(0), Some(c) if c == '.') {
@@ -235,7 +259,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 
             let fractional = self.consume_digits()?;
             if fractional.is_empty() {
-                return Err(Error::from(Expected(Digit)));
+                return Err(Error::from(Expected(Digit(Dec))));
             }
 
             literal.push_str(&fractional);
@@ -256,13 +280,50 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 
             let exponent = self.consume_digits()?;
             if exponent.is_empty() {
-                return Err(Error::from(Expected(Digit)));
+                return Err(Error::from(Expected(Digit(Dec))));
             }
 
             literal.push_str(&exponent);
         }
 
         Ok(literal)
+    }
+
+    fn match_string(&mut self) -> Result<String> {
+        let mut codepoints = String::new();
+
+        loop {
+            match self.advance_input_reader()? {
+                Some(c) if c == '"' => break,
+                Some(c) if c.is_ascii_control() => return Err(Error::from(Unexpected(c))),
+                Some(c) if c == '\\' => {
+                    codepoints.push(c);
+
+                    match self.advance_input_reader()? {
+                        Some(c @ ('"' | '\\' | '/' | 'b' | 'f' | 'n' | 'r' | 't')) => {
+                            codepoints.push(c)
+                        }
+                        Some('u') => {
+                            let next_four = (0..4).filter_map(|i| self.input_reader.peek(i));
+
+                            if next_four.filter(char::is_ascii_hexdigit).count() != 4 {
+                                return Err(Error::from(Expected(Digit(Hex))));
+                            }
+
+                            codepoints.push('u');
+                            for _ in 0..4 {
+                                codepoints.push(self.advance_input_reader()?.unwrap());
+                            }
+                        }
+                        _ => return Err(Error::from(Expected(EscapedCharacter))),
+                    }
+                }
+                Some(c) => codepoints.push(c),
+                None => return Err(Error::from(Expected(StringTerminator))),
+            }
+        }
+
+        Ok(codepoints)
     }
 }
 

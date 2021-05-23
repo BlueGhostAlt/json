@@ -93,6 +93,7 @@ pub struct Token {
 #[derive(Debug)]
 pub struct IntoIter<R> {
     lexer: Lexer<R>,
+    last_err: Option<Error>,
 }
 
 #[derive(Debug)]
@@ -138,7 +139,10 @@ impl<R> Lexer<R> {
     }
 
     const fn into_iter(self) -> IntoIter<R> {
-        IntoIter { lexer: self }
+        IntoIter {
+            lexer: self,
+            last_err: None,
+        }
     }
 }
 
@@ -326,7 +330,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
 }
 
 impl<R: input_reader::ReadInput> IntoIterator for Lexer<R> {
-    type Item = Token;
+    type Item = Result<Token>;
     type IntoIter = IntoIter<R>;
     fn into_iter(self) -> Self::IntoIter {
         self.into_iter()
@@ -334,12 +338,17 @@ impl<R: input_reader::ReadInput> IntoIterator for Lexer<R> {
 }
 
 impl<R: input_reader::ReadInput> Iterator for IntoIter<R> {
-    type Item = Token;
+    type Item = Result<Token>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.lexer.current_token.take()?;
-        self.lexer.consume().ok();
+        if let Some(err) = self.last_err.take() {
+            self.last_err = self.lexer.consume().err();
+            return Some(Err(err));
+        }
 
-        Some(c)
+        let c = self.lexer.current_token.take()?;
+        self.last_err = self.lexer.consume().err();
+
+        Some(Ok(c))
     }
 }

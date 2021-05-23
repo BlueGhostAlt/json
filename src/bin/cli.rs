@@ -11,7 +11,7 @@ const SOURCE: &[u8] = r#"{
                 {
                     "idx": 0,
                     "entry": {
-                        "id": "First Example Entry",
+                        "id": "First Example Entry \u444",
                         "states": [true, false, true, true]
                     },
                     "reference": null

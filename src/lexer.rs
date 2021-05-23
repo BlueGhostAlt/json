@@ -240,17 +240,15 @@ impl<R: input_reader::ReadInput> Lexer<R> {
             digits.extend(fractional);
         }
 
-        if matches!(self.input_reader.peek(0), Some(c) if c.to_ascii_lowercase() == 'e') {
+        if matches!(self.input_reader.peek(0), Some('e' | 'E')) {
+            let c = self.input_reader.peek(0).unwrap();
             self.advance_input_reader().unwrap();
-            digits.push('e');
+            digits.push(c);
 
             match self.input_reader.peek(0) {
-                Some('-') => {
+                Some(c @ ('-' | '+')) => {
                     self.advance_input_reader().unwrap();
-                    digits.push('-');
-                }
-                Some('+') => {
-                    self.advance_input_reader().unwrap();
+                    digits.push(c);
                 }
                 _ => {}
             }

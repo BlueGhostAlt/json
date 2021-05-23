@@ -182,8 +182,8 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         Ok(actual)
     }
 
-    fn consume_digits(&mut self) -> Result<Vec<char>> {
-        let mut digits = Vec::new();
+    fn consume_digits(&mut self) -> Result<String> {
+        let mut digits = String::new();
 
         loop {
             match self.input_reader.peek(0) {
@@ -202,13 +202,13 @@ impl<R: input_reader::ReadInput> Lexer<R> {
     }
 
     fn match_number(&mut self, first_digit: char) -> Result<String> {
-        let mut digits = vec![first_digit];
+        let mut literal = String::from(first_digit);
 
         let first_digit = if first_digit == '-' {
             let c = self
                 .advance_input_reader()?
                 .ok_or_else(|| Error::from(Expected(Digit)))?;
-            digits.push(c);
+            literal.push(c);
 
             c
         } else {
@@ -216,45 +216,45 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         };
 
         match first_digit {
-            '1'..='9' => digits.extend(self.consume_digits()?),
+            '1'..='9' => literal.push_str(&self.consume_digits()?),
             '0' => {}
             _ => return Err(Error::from(Expected(Digit))),
         }
 
         if matches!(self.input_reader.peek(0), Some(c) if c == '.') {
             self.advance_input_reader().unwrap();
-            digits.push('.');
+            literal.push('.');
 
             let fractional = self.consume_digits()?;
-            if matches!(fractional.first(), None) {
+            if fractional.is_empty() {
                 return Err(Error::from(Expected(Digit)));
             }
 
-            digits.extend(fractional);
+            literal.push_str(&fractional);
         }
 
         if matches!(self.input_reader.peek(0), Some('e' | 'E')) {
             let c = self.input_reader.peek(0).unwrap();
             self.advance_input_reader().unwrap();
-            digits.push(c);
+            literal.push(c);
 
             match self.input_reader.peek(0) {
                 Some(c @ ('-' | '+')) => {
                     self.advance_input_reader().unwrap();
-                    digits.push(c);
+                    literal.push(c);
                 }
                 _ => {}
             }
 
             let exponent = self.consume_digits()?;
-            if matches!(exponent.first(), None) {
+            if exponent.is_empty() {
                 return Err(Error::from(Expected(Digit)));
             }
 
-            digits.extend(exponent);
+            literal.push_str(&exponent);
         }
 
-        Ok(digits.into_iter().collect::<String>())
+        Ok(literal)
     }
 }
 

@@ -307,8 +307,10 @@ impl<R: input_reader::ReadInput> Lexer<R> {
                         }
                         Some('u') => {
                             let next_four = (0..4).filter_map(|i| self.input_reader.peek(i));
+                            let valid_count = next_four.filter(char::is_ascii_hexdigit).count();
 
-                            if next_four.filter(char::is_ascii_hexdigit).count() != 4 {
+                            if valid_count != 4 {
+                                self.input_reader.consume(valid_count + 1)?;
                                 return Err(Error::from(Expected(Digit(Hex))));
                             }
 

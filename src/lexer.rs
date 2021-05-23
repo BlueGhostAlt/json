@@ -81,6 +81,14 @@ pub type Result<T> = result::Result<T, Error>;
 pub struct Lexer<R> {
     input_reader: R,
     current_token: Option<Token>,
+
+    pos: Pos,
+}
+
+#[derive(Debug)]
+pub struct IntoIter<R> {
+    lexer: Lexer<R>,
+    last_err: Option<Error>,
 }
 
 #[derive(Debug)]
@@ -88,12 +96,15 @@ pub struct Token {
     #[allow(dead_code)]
     kind: TokenKind,
     raw: Cow<'static, str>,
+    start: Pos,
+    end: Pos,
 }
 
-#[derive(Debug)]
-pub struct IntoIter<R> {
-    lexer: Lexer<R>,
-    last_err: Option<Error>,
+#[derive(Debug, Clone, Copy)]
+struct Pos {
+    line: usize,
+    column: usize,
+    offset: usize,
 }
 
 #[derive(Debug)]
@@ -123,14 +134,37 @@ use TokenKind::{
     CloseBrace, CloseBracket, Colon, Comma, Literal, OpenBrace, OpenBracket, Whitespace,
 };
 
-impl From<(TokenKind, Cow<'static, str>)> for Token {
-    fn from((kind, raw): (TokenKind, Cow<'static, str>)) -> Self {
-        Self { kind, raw }
+impl From<(TokenKind, String, Pos, Pos)> for Token {
+    fn from((kind, raw, start, end): (TokenKind, String, Pos, Pos)) -> Self {
+        Token {
+            kind,
+            raw: Cow::from(raw),
+            start,
+            end,
+        }
     }
 }
 
-fn char_to_cow_str(ch: char) -> Cow<'static, str> {
-    Cow::from(String::from(ch))
+impl From<(TokenKind, &'static str, Pos, Pos)> for Token {
+    fn from((kind, raw, start, end): (TokenKind, &'static str, Pos, Pos)) -> Self {
+        Token {
+            kind,
+            raw: Cow::from(raw),
+            start,
+            end,
+        }
+    }
+}
+
+impl From<(TokenKind, char, Pos, Pos)> for Token {
+    fn from((kind, raw, start, end): (TokenKind, char, Pos, Pos)) -> Self {
+        Token {
+            kind,
+            raw: Cow::from(String::from(raw)),
+            start,
+            end,
+        }
+    }
 }
 
 impl<R> Lexer<R> {
@@ -151,33 +185,81 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         let mut lexer = Self {
             input_reader,
             current_token: None,
+
+            pos: Pos {
+                column: 1,
+                line: 1,
+                offset: 0,
+            },
         };
         lexer.consume()?;
 
         Ok(lexer)
     }
 
+    fn advance_column(&mut self, by: usize) -> Pos {
+        self.pos.column += by;
+        self.pos.offset += by;
+
+        self.pos
+    }
+
+    fn advance_line(&mut self) -> Pos {
+        self.pos.column = 1;
+        self.pos.line += 1;
+        self.pos.offset += 1;
+
+        self.pos
+    }
+
     pub fn consume(&mut self) -> Result<()> {
         self.current_token = None;
 
+        let start = self.pos;
+
         if let Some(c) = self.advance_input_reader()? {
-            let (kind, raw) = match c {
-                ' ' | '\n' | '\r' | '\t' => (Whitespace, char_to_cow_str(c)),
-                ',' => (Comma, char_to_cow_str(c)),
-                '{' => (OpenBrace, char_to_cow_str(c)),
-                '}' => (CloseBrace, char_to_cow_str(c)),
-                '[' => (OpenBracket, char_to_cow_str(c)),
-                ']' => (CloseBracket, char_to_cow_str(c)),
-                ':' => (Colon, char_to_cow_str(c)),
-                'n' => (Literal { kind: Null }, self.match_keyword("null")?.into()),
-                't' => (Literal { kind: Bool }, self.match_keyword("true")?.into()),
-                'f' => (Literal { kind: Bool }, self.match_keyword("false")?.into()),
-                '0'..='9' | '-' => (Literal { kind: Num }, self.match_number(c)?.into()),
-                '"' => (Literal { kind: Str }, self.match_string()?.into()),
+            let token = match c {
+                ' ' | '\t' => Token::from((Whitespace, c, start, self.advance_column(1))),
+                '\n' => Token::from((Whitespace, c, start, self.advance_line())),
+                '\r' => Token::from((Whitespace, c, start, self.advance_column(1))),
+                ',' => Token::from((Comma, c, start, self.advance_column(1))),
+                '{' => Token::from((OpenBrace, c, start, self.advance_column(1))),
+                '}' => Token::from((CloseBrace, c, start, self.advance_column(1))),
+                '[' => Token::from((OpenBracket, c, start, self.advance_column(1))),
+                ']' => Token::from((CloseBracket, c, start, self.advance_column(1))),
+                ':' => Token::from((Colon, c, start, self.advance_column(1))),
+                'n' => Token::from((
+                    Literal { kind: Null },
+                    self.match_keyword("null")?,
+                    start,
+                    self.advance_column(4),
+                )),
+                't' => Token::from((
+                    Literal { kind: Bool },
+                    self.match_keyword("true")?,
+                    start,
+                    self.advance_column(4),
+                )),
+                'f' => Token::from((
+                    Literal { kind: Bool },
+                    self.match_keyword("false")?,
+                    start,
+                    self.advance_column(5),
+                )),
+                '0'..='9' | '-' => {
+                    let raw = self.match_number(c)?;
+                    let len = raw.len();
+                    Token::from((Literal { kind: Num }, raw, start, self.advance_column(len)))
+                }
+                '"' => {
+                    let raw = self.match_string()?;
+                    let len = raw.len() + 2;
+                    Token::from((Literal { kind: Str }, raw, start, self.advance_column(len)))
+                }
                 _ => return Err(Error::from(Unexpected(c))),
             };
 
-            self.current_token = Some(Token::from((kind, raw)));
+            self.current_token = Some(token);
         }
 
         Ok(())

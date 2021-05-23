@@ -1,0 +1,18 @@
+{
+    "example": {
+        "title": "Just an example",
+		"content": {
+            "id": 0,
+			"list": [
+                {
+                    "idx": 0,
+                    "entry": {
+                        "id": "First Example Entry",
+                        "states": [true, false, true, true]
+                    },
+                    "reference": null
+                }
+            ]
+        }
+    }
+}

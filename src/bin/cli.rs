@@ -2,25 +2,7 @@ use std::error;
 
 use json::{input_reader::MemoryReader, lexer::Lexer};
 
-const SOURCE: &[u8] = r#"{
-    "example": {
-        "title": "Just an example",
-		"content": {
-            "id": 0,
-			"list": [
-                {
-                    "idx": 0,
-                    "entry": {
-                        "id": "First Example Entry \u444",
-                        "states": [true, false, true, true]
-                    },
-                    "reference": null
-                }
-            ]
-        }
-    }
-}"#
-.as_bytes();
+const SOURCE: &[u8] = include_bytes!("../../example.json");
 
 fn try_main() -> Result<(), Box<dyn error::Error>> {
     let reader = MemoryReader::new(SOURCE)?;

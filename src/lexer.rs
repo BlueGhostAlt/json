@@ -70,6 +70,7 @@ pub struct Lexer<R> {
 pub struct Token {
     #[allow(dead_code)]
     kind: TokenKind,
+    raw: String,
 }
 
 #[derive(Debug)]
@@ -96,14 +97,20 @@ enum TokenKind {
 #[derive(Debug)]
 enum LiteralKind {
     Null,
-    Boolean(bool),
-    Number(f64),
+    Boolean,
+    Number,
 }
 
 use LiteralKind::{Boolean, Null, Number};
 use TokenKind::{
     CloseBrace, CloseBracket, Colon, Comma, Literal, OpenBrace, OpenBracket, Unknown, Whitespace,
 };
+
+impl From<(TokenKind, String)> for Token {
+    fn from((kind, raw): (TokenKind, String)) -> Self {
+        Self { kind, raw }
+    }
+}
 
 impl<R> Lexer<R> {
     pub const fn peek(&self) -> Option<&Token> {
@@ -130,37 +137,22 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         self.current_token = None;
 
         if let Some(c) = self.advance_input_reader()? {
-            let kind = match c {
-                ' ' | '\n' | '\r' | '\t' => Whitespace,
-                ',' => Comma,
-                '{' => OpenBrace,
-                '}' => CloseBrace,
-                '[' => OpenBracket,
-                ']' => CloseBracket,
-                ':' => Colon,
-                'n' => {
-                    self.match_keyword("null")?;
-                    Literal { kind: Null }
-                }
-                't' => {
-                    self.match_keyword("true")?;
-                    Literal {
-                        kind: Boolean(true),
-                    }
-                }
-                'f' => {
-                    self.match_keyword("false")?;
-                    Literal {
-                        kind: Boolean(false),
-                    }
-                }
-                '0'..='9' | '-' => Literal {
-                    kind: Number(self.match_number(c)?),
-                },
-                _ => Unknown,
+            let (kind, raw) = match c {
+                ' ' | '\n' | '\r' | '\t' => (Whitespace, c.into()),
+                ',' => (Comma, c.into()),
+                '{' => (OpenBrace, c.into()),
+                '}' => (CloseBrace, c.into()),
+                '[' => (OpenBracket, c.into()),
+                ']' => (CloseBracket, c.into()),
+                ':' => (Colon, c.into()),
+                'n' => (Literal { kind: Null }, self.match_keyword("null")?),
+                't' => (Literal { kind: Boolean }, self.match_keyword("true")?),
+                'f' => (Literal { kind: Boolean }, self.match_keyword("false")?),
+                '0'..='9' | '-' => (Literal { kind: Number }, self.match_number(c)?),
+                _ => (Unknown, c.into()),
             };
 
-            self.current_token = Some(Token::from(kind));
+            self.current_token = Some(Token::from((kind, raw)));
         }
 
         Ok(())
@@ -176,17 +168,18 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         Ok(None)
     }
 
-    fn match_keyword(&mut self, kw: &'static str) -> Result<()> {
-        let actual_chars = (0..kw.len() - 1).filter_map(|k| self.input_reader.peek(k));
-        let expect_chars = kw[1..].chars();
+    fn match_keyword(&mut self, kw: &'static str) -> Result<String> {
+        let actual = (0..kw.len() - 1)
+            .filter_map(|k| self.input_reader.peek(k))
+            .collect::<String>();
 
-        if actual_chars.ne(expect_chars) {
+        if &actual != kw {
             return Err(Error::from(Expected(Keyword(kw))));
         }
 
         self.input_reader.consume(kw.len() - 1)?;
 
-        Ok(())
+        Ok(actual)
     }
 
     fn consume_digits(&mut self) -> Result<Vec<char>> {
@@ -208,7 +201,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
         Ok(digits)
     }
 
-    fn match_number(&mut self, first_digit: char) -> Result<f64> {
+    fn match_number(&mut self, first_digit: char) -> Result<String> {
         let mut digits = vec![first_digit];
 
         let first_digit = if first_digit == '-' {
@@ -261,13 +254,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
             digits.extend(exponent);
         }
 
-        Ok(digits.into_iter().collect::<String>().parse().unwrap())
-    }
-}
-
-impl From<TokenKind> for Token {
-    fn from(kind: TokenKind) -> Self {
-        Self { kind }
+        Ok(digits.into_iter().collect::<String>())
     }
 }
 

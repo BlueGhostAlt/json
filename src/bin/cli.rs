@@ -2,20 +2,24 @@ use std::error;
 
 use json::{input_reader::MemoryReader, lexer::Lexer};
 
-const SOURCE: &[u8] = r#"[
-    null,
-    true,
-    false,
-    0,
-    -0,
-    19,
-    -23,
-    0.1,
-    -2.5,
-    42e-1,
-    18E1,
-    "This is a \t\u0020 string wow"
-]"#
+const SOURCE: &[u8] = r#"{
+    "example": {
+        "title": "Just an example",
+		"content": {
+            "id": 0,
+			"list": [
+                {
+                    "idx": 0,
+                    "entry": {
+                        "id": "First Example Entry",
+                        "states": [true, false, true, true]
+                    },
+                    "reference": null
+                }
+            ]
+        }
+    }
+}"#
 .as_bytes();
 
 fn try_main() -> Result<(), Box<dyn error::Error>> {

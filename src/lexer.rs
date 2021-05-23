@@ -107,8 +107,6 @@ enum TokenKind {
     Colon,
 
     Literal { kind: LiteralKind },
-
-    Unknown,
 }
 
 #[derive(Debug)]
@@ -121,7 +119,7 @@ enum LiteralKind {
 
 use LiteralKind::{Boolean, Null, Number};
 use TokenKind::{
-    CloseBrace, CloseBracket, Colon, Comma, Literal, OpenBrace, OpenBracket, Unknown, Whitespace,
+    CloseBrace, CloseBracket, Colon, Comma, Literal, OpenBrace, OpenBracket, Whitespace,
 };
 
 impl From<(TokenKind, Cow<'static, str>)> for Token {
@@ -183,7 +181,7 @@ impl<R: input_reader::ReadInput> Lexer<R> {
                     },
                     self.match_string()?.into(),
                 ),
-                _ => (Unknown, Cow::Owned(c.into())),
+                _ => return Err(Error::from(Unexpected(c))),
             };
 
             self.current_token = Some(Token::from((kind, raw)));

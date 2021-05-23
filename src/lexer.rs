@@ -19,8 +19,8 @@ enum Repr {
 enum ExpectedKind {
     Keyword(&'static str),
     Digit(DigitKind),
-    StringTerminator,
-    EscapedCharacter,
+    StrTerminator,
+    EscapedChar,
 }
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ enum DigitKind {
 }
 
 use DigitKind::{Dec, Hex};
-use ExpectedKind::{Digit, EscapedCharacter, Keyword, StringTerminator};
+use ExpectedKind::{Digit, EscapedChar, Keyword, StrTerminator};
 use Repr::{Expected, InputReader, Unexpected};
 
 impl From<input_reader::Error> for Error {
@@ -57,8 +57,8 @@ impl fmt::Display for Error {
                     Hex => write!(f, "expected hexadecimal digit"),
                     Dec => write!(f, "expected digit"),
                 },
-                StringTerminator => write!(f, "expected string terminator '\"'"),
-                EscapedCharacter => write!(f, "expected escaped character"),
+                StrTerminator => write!(f, "expected string terminator '\"'"),
+                EscapedChar => write!(f, "expected escaped character"),
             },
             Unexpected(unexpected_char) => write!(f, "unexpected character '{}'", unexpected_char),
         }
@@ -113,12 +113,12 @@ enum TokenKind {
 #[derive(Debug)]
 enum LiteralKind {
     Null,
-    Boolean,
-    Number,
-    String,
+    Bool,
+    Num,
+    Str,
 }
 
-use LiteralKind::{Boolean, Null, Number};
+use LiteralKind::{Bool, Null, Num, Str};
 use TokenKind::{
     CloseBrace, CloseBracket, Colon, Comma, Literal, OpenBrace, OpenBracket, Whitespace,
 };
@@ -170,21 +170,10 @@ impl<R: input_reader::ReadInput> Lexer<R> {
                 ']' => (CloseBracket, char_to_cow_str(c)),
                 ':' => (Colon, char_to_cow_str(c)),
                 'n' => (Literal { kind: Null }, self.match_keyword("null")?.into()),
-                't' => (
-                    Literal { kind: Boolean },
-                    self.match_keyword("true")?.into(),
-                ),
-                'f' => (
-                    Literal { kind: Boolean },
-                    self.match_keyword("false")?.into(),
-                ),
-                '0'..='9' | '-' => (Literal { kind: Number }, self.match_number(c)?.into()),
-                '"' => (
-                    Literal {
-                        kind: LiteralKind::String,
-                    },
-                    self.match_string()?.into(),
-                ),
+                't' => (Literal { kind: Bool }, self.match_keyword("true")?.into()),
+                'f' => (Literal { kind: Bool }, self.match_keyword("false")?.into()),
+                '0'..='9' | '-' => (Literal { kind: Num }, self.match_number(c)?.into()),
+                '"' => (Literal { kind: Str }, self.match_string()?.into()),
                 _ => return Err(Error::from(Unexpected(c))),
             };
 
@@ -272,12 +261,9 @@ impl<R: input_reader::ReadInput> Lexer<R> {
             self.advance_input_reader().unwrap();
             literal.push(c);
 
-            match self.input_reader.peek(0) {
-                Some(c @ ('-' | '+')) => {
-                    self.advance_input_reader().unwrap();
-                    literal.push(c);
-                }
-                _ => {}
+            if let Some(c @ ('-' | '+')) = self.input_reader.peek(0) {
+                self.advance_input_reader().unwrap();
+                literal.push(c);
             }
 
             let exponent = self.consume_digits()?;
@@ -319,11 +305,11 @@ impl<R: input_reader::ReadInput> Lexer<R> {
                                 codepoints.push(self.advance_input_reader()?.unwrap());
                             }
                         }
-                        _ => return Err(Error::from(Expected(EscapedCharacter))),
+                        _ => return Err(Error::from(Expected(EscapedChar))),
                     }
                 }
                 Some(c) => codepoints.push(c),
-                None => return Err(Error::from(Expected(StringTerminator))),
+                None => return Err(Error::from(Expected(StrTerminator))),
             }
         }
 
